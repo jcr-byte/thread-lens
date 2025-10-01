@@ -6,7 +6,11 @@ module.exports = {
       './app/**/*.{js,ts,jsx,tsx,mdx}',
     ],
     theme: {
-      extend: {},
+      extend: {
+        fontFamily: {
+          sans: ['neue-haas-grotesk-display', 'neue-haas-grotesk-text', 'system-ui', 'sans-serif'],
+        },
+      },
     },
     plugins: [],
   }
