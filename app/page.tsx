@@ -1,5 +1,5 @@
-import Header from "./components/header";
-import Outfits from "./components/outfits";
+import Header from "./components/Header";
+import Outfits from "./components/Outfits";
 
 export default function Home() {
   return (

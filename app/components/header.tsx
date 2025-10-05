@@ -1,12 +1,65 @@
 "use client"
 
+import { useState } from 'react';
+import { User, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import AuthModal from './AuthModal';
+
 export default function Header() {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
+
+  const handleAuthClick = () => {
+    if (isAuthenticated) {
+      logout();
+    } else {
+      setIsAuthModalOpen(true);
+    }
+  };
+
   return (
-    <div className="flex justify-center bg-white border-b border-gray-500">
-      <div className="p-5">
-        <h1 className="text-4xl font-semibold text-gray-900">Thread Lens</h1>
+    <>
+      <div className="flex justify-between items-center bg-white border-b border-gray-500 px-8">
+        <div className="p-5">
+          <h1 className="text-4xl font-semibold text-gray-900">Thread Lens</h1>
+        </div>
+        
+        <div className="flex items-center space-x-4">
+          {isAuthenticated ? (
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <img
+                  src={user?.avatar}
+                  alt={user?.name}
+                  className="w-8 h-8 rounded-full"
+                />
+                <span className="text-gray-700 font-medium">{user?.name}</span>
+              </div>
+              <button
+                onClick={handleAuthClick}
+                className="flex items-center space-x-1 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <LogOut size={18} />
+                <span>Logout</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleAuthClick}
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <User size={18} />
+              <span>Sign In</span>
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+      />
+    </>
   );
 }
 

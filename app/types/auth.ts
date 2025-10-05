@@ -1,3 +1,5 @@
+import { User as SupabaseUser } from '@supabase/supabase-js'
+
 export interface User {
   id: string;
   email: string;
@@ -13,6 +15,6 @@ export interface AuthState {
 
 export interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
 }
