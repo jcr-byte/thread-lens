@@ -1,11 +1,15 @@
 "use client"
 
 import { useState } from 'react';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import AuthModal from './AuthModal';
 
-export default function Header() {
+interface HeaderProps {
+  onSidebarToggle?: () => void;
+}
+
+export default function Header({ onSidebarToggle }: HeaderProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
 
@@ -19,9 +23,16 @@ export default function Header() {
 
   return (
     <>
-      <div className="flex justify-between items-center bg-white border-b border-gray-500 px-8">
-        <div className="p-5">
-          <h1 className="text-4xl font-semibold text-gray-900">Thread Lens</h1>
+      <div className="flex justify-between items-center bg-white border-b border-gray-200 px-5 h-14">
+        <div className="flex items-center space-x-4">
+          {onSidebarToggle && (
+            <button
+              onClick={onSidebarToggle}
+              className="p-2 rounded-lg text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+          )}
         </div>
         
         <div className="flex items-center space-x-4">
