@@ -88,3 +88,14 @@ export async function uploadOutfitImage(
         folder: `outfits/${outfitId}`,
     });
 }
+
+export async function uploadClothingImage(
+    file: File,
+    userId: string,
+    opts?: Omit<UploadOptions, 'folder'>
+): Promise<UploadResult> {
+    return uploadImageToBucket('clothing-images', file, {
+        ...opts,
+        folder: `users/${userId}/clothing`,
+    });
+}
