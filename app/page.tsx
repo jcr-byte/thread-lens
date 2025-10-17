@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Header from "./components/Header";
-import Outfits from "./components/Outfits";
+import Outfits from "./components/pages/Outfits";
 import Sidebar from "./components/Sidebar";
 
 export default function Home() {
