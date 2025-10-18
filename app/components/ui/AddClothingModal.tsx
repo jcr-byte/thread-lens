@@ -216,12 +216,12 @@ export default function AddClothingModal({ isOpen, onClose, onSuccess }: AddClot
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Image Upload */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <div className="flex flex-col items-center">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5 self-start">
                     Item Photo
                     </label>
                     {imagePreview ? (
-                    <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
+                    <div className="relative w-80 h-80 bg-gray-100 rounded-lg overflow-hidden">
                         <img
                         src={imagePreview}
                         alt="Preview"
@@ -230,14 +230,14 @@ export default function AddClothingModal({ isOpen, onClose, onSuccess }: AddClot
                         <button
                         type="button"
                         onClick={removeImage}
-                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 transition-colors"
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 transition-colors"
                         >
-                        <X size={14} />
+                        <X size={16} />
                         </button>
                     </div>
                     ) : (
-                    <label className="w-full h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 cursor-pointer transition-colors">
-                        <ImageIcon size={32} className="text-gray-400 mb-1" />
+                    <label className="w-80 h-80 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 cursor-pointer transition-colors">
+                        <ImageIcon size={56} className="text-gray-400 mb-2" />
                         <span className="text-sm text-gray-600">Click to upload image</span>
                         <input
                         type="file"
