@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { getUserClothingItems } from "../../lib/clothing";
+import { getUserClothingItems, deleteClothingItem } from "../../lib/clothing";
 import { ClothingItem } from "../../types/clothing";
 import AddClothingModal from "../ui/AddClothingModal";
 import ClothingItemModal from "../ui/ClothingItemModal";
@@ -23,6 +23,19 @@ export default function Closet() {
       setClothingItems(data);
     }
     setIsLoading(false);
+  };
+
+  const handleDelete = async (itemId: string) => {
+    const itemToDelete = clothingItems.find(item => item.id === itemId);
+    const { success, error } = await deleteClothingItem(itemId, itemToDelete?.image_path);
+    
+    if (success) {
+      // Refresh the list after deletion
+      loadClothingItems();
+    } else {
+      console.error('Error deleting item:', error);
+      alert('Failed to delete item. Please try again.');
+    }
   };
 
   useEffect(() => {
@@ -45,6 +58,7 @@ export default function Closet() {
         item={selectedItem}
         isOpen={selectedItem !== null}
         onClose={() => setSelectedItem(null)}
+        onDelete={handleDelete}
       />
       
       <div className="grid grid-cols-4 gap-4 my-10 mx-14">

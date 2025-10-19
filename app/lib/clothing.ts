@@ -71,3 +71,39 @@ export async function getUserClothingItems(
 
     return { data, error: null };
 }
+
+export async function deleteClothingItem(
+    itemId: string,
+    imagePath?: string
+): Promise<{ success: boolean; error: string | null }> {
+    try {
+        // Delete image from storage if it exists
+        if (imagePath) {
+            const { error: storageError } = await supabase.storage
+                .from('clothing-images')
+                .remove([imagePath]);
+            
+            if (storageError) {
+                console.error('Error deleting image:', storageError);
+                // Continue with database deletion even if storage deletion fails
+            }
+        }
+
+        // Delete from database
+        const { error } = await supabase
+            .from('clothing_items')
+            .delete()
+            .eq('id', itemId);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        return { success: true, error: null };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
