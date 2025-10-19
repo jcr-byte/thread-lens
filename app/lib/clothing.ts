@@ -107,3 +107,26 @@ export async function deleteClothingItem(
         };
     }
 }
+
+export async function toggleFavoriteClothingItem(
+    itemId: string,
+    currentFavoriteStatus: boolean
+): Promise<{ success: boolean; error: string | null }> {
+    try {
+        const { error } = await supabase
+            .from('clothing_items')
+            .update({ is_favorite: !currentFavoriteStatus })
+            .eq('id', itemId);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        return { success: true, error: null };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
