@@ -1,11 +1,33 @@
 "use client"
 
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { getUserClothingItems } from "../../lib/clothing";
+import { ClothingItem } from "../../types/clothing";
 import AddClothingModal from "../ui/AddClothingModal";
 
 export default function Closet() {
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadClothingItems = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    const { data, error } = await getUserClothingItems(user.id);
+    if (data) {
+      setClothingItems(data);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadClothingItems();
+    }
+  }, [user]);
 
   return (
     <>
@@ -13,18 +35,38 @@ export default function Closet() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => {
-          // Optional: Add any refresh logic here
-          console.log('Item added successfully!');
+          loadClothingItems(); // Refresh the list
         }}
       />
       
-      <div className="grid grid-cols-4 gap-4 px-20 py-10">
+      <div className="grid grid-cols-4 gap-4 my-10 mx-14">
+        {/* Add button - stays first */}
         <div 
           onClick={() => setIsModalOpen(true)}
-          className="w-72 h-72 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 hover:cursor-pointer transition-colors"
+          className="mx-4 aspect-square flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 hover:cursor-pointer hover:scale-105 transition-all"
         >
           <Plus className="text-black w-50 h-50" />
         </div>
+        
+        {/* Clothing items */}
+        {clothingItems.map((item) => (
+          <div 
+            key={item.id}
+            className="mx-4 aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg hover:scale-105 transition-all cursor-pointer"
+          >
+            {item.image_url ? (
+              <img 
+                src={item.image_url} 
+                alt={item.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                No Image
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </>
   );
