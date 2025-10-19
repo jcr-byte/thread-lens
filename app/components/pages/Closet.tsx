@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import AddClothingModal from "../ui/AddClothingModal";
 
-export default function Outfits() {
+export default function Closet() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (

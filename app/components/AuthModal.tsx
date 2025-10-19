@@ -76,8 +76,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </h2>
           <p className="text-gray-600">
             {isSignUp 
-              ? 'Sign up to start organizing your outfits' 
-              : 'Sign in to access your outfit collection'
+              ? 'Sign up to start organizing your closet' 
+              : 'Sign in to access your closet'
             }
           </p>
         </div>

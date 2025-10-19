@@ -1,6 +1,6 @@
 "use client"
 
-import { X, Home, Settings, User } from 'lucide-react';
+import { X, Home, Settings, User, Shirt } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -41,7 +41,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="space-y-2">
             <button className="w-full flex items-center space-x-3 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
               <Home size={20} />
-              <span>Home</span>
+              <span>Closet</span>
+            </button>
+            
+            <button className="w-full flex items-center space-x-3 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              <Shirt size={20} />
+              <span>Outfits</span>
             </button>
             
             <button className="w-full flex items-center space-x-3 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">

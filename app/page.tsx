@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Header from "./components/Header";
-import Outfits from "./components/pages/Outfits";
+import Closet from "./components/pages/Closet";
 import Sidebar from "./components/Sidebar";
 
 export default function Home() {
@@ -20,7 +20,7 @@ export default function Home() {
         ${isSidebarOpen ? 'lg:ml-60' : 'ml-0'}
       `}>
         <Header onSidebarToggle={toggleSidebar} />
-        <Outfits />
+        <Closet />
       </div>
     </div>
   );
