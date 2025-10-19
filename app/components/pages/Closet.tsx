@@ -6,12 +6,14 @@ import { useAuth } from "../../contexts/AuthContext";
 import { getUserClothingItems } from "../../lib/clothing";
 import { ClothingItem } from "../../types/clothing";
 import AddClothingModal from "../ui/AddClothingModal";
+import ClothingItemModal from "../ui/ClothingItemModal";
 
 export default function Closet() {
   const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState<ClothingItem | null>(null);
 
   const loadClothingItems = async () => {
     if (!user) return;
@@ -38,6 +40,12 @@ export default function Closet() {
           loadClothingItems(); // Refresh the list
         }}
       />
+
+      <ClothingItemModal
+        item={selectedItem}
+        isOpen={selectedItem !== null}
+        onClose={() => setSelectedItem(null)}
+      />
       
       <div className="grid grid-cols-4 gap-4 my-10 mx-14">
         {/* Add button - stays first */}
@@ -52,6 +60,7 @@ export default function Closet() {
         {clothingItems.map((item) => (
           <div 
             key={item.id}
+            onClick={() => setSelectedItem(item)}
             className="mx-4 aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg hover:scale-105 transition-all cursor-pointer"
           >
             {item.image_url ? (
