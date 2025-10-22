@@ -1,13 +1,16 @@
 "use client"
 
 import { X, Home, Settings, User, Shirt } from 'lucide-react';
+import { Page } from '../page';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  currentPage: Page;
+  onPageChange: (page: Page) => void;
 }
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, currentPage, onPageChange }: SidebarProps) {
   return (
     <>
       {/* Overlay for mobile */}
@@ -39,22 +42,50 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Sidebar Content */}
         <nav className="p-4">
           <div className="space-y-2">
-            <button className="w-full flex items-center space-x-3 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+            <button 
+              onClick={() => onPageChange('closet')}
+              className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors ${
+                currentPage === 'closet' 
+                  ? 'bg-blue-100 text-blue-700 font-medium' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
               <Home size={20} />
               <span>Closet</span>
             </button>
             
-            <button className="w-full flex items-center space-x-3 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+            <button 
+              onClick={() => onPageChange('outfits')}
+              className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors ${
+                currentPage === 'outfits' 
+                  ? 'bg-blue-100 text-blue-700 font-medium' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
               <Shirt size={20} />
               <span>Outfits</span>
             </button>
             
-            <button className="w-full flex items-center space-x-3 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+            <button 
+              onClick={() => onPageChange('profile')}
+              className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors ${
+                currentPage === 'profile' 
+                  ? 'bg-blue-100 text-blue-700 font-medium' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
               <User size={20} />
               <span>Profile</span>
             </button>
             
-            <button className="w-full flex items-center space-x-3 px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+            <button 
+              onClick={() => onPageChange('settings')}
+              className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors ${
+                currentPage === 'settings' 
+                  ? 'bg-blue-100 text-blue-700 font-medium' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
               <Settings size={20} />
               <span>Settings</span>
             </button>
