@@ -149,7 +149,8 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
             return;
         }
 
-        if (!formData.name.trim()) {
+        // Only require name in manual mode
+        if (!isAIMode && !formData.name.trim()) {
             setError('Outfit name is required');
             return;
         }
@@ -167,8 +168,13 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                 ? formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
                 : [];
 
+            // Use user-provided name in manual mode, or auto-generate in AI mode
+            const outfitName = isAIMode 
+                ? `Outfit ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`
+                : formData.name;
+
             const { data, error: createError } = await createOutfit(user.id, {
-                name: formData.name,
+                name: outfitName,
                 description: formData.description || undefined,
                 clothing_item_ids: selectedItemIds,
                 tags: tagsArray.length > 0 ? tagsArray : undefined,
@@ -261,21 +267,24 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Basic Info */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Outfit Name *
-                            </label>
-                            <input
-                                type="text"
-                                id="name"
-                                name="name"
-                                value={formData.name}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                                placeholder="e.g., Summer Beach Day"
-                                required
-                            />
-                        </div>
+                        {/* Outfit Name - only show in Manual mode */}
+                        {!isAIMode && (
+                            <div className="col-span-2">
+                                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5">
+                                    Outfit Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    id="name"
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleInputChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                    placeholder="e.g., Summer Beach Day"
+                                    required
+                                />
+                            </div>
+                        )}
 
                         <div>
                             <label htmlFor="occasion" className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -308,21 +317,23 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                         </div>
                     </div>
 
-                    {/* Description */}
-                    <div>
-                        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1.5">
-                            Description
-                        </label>
-                        <textarea
-                            id="description"
-                            name="description"
-                            value={formData.description}
-                            onChange={handleInputChange}
-                            rows={2}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-sm"
-                            placeholder="Add any notes about this outfit..."
-                        />
-                    </div>
+                    {/* Description - only show in Manual mode */}
+                    {!isAIMode && (
+                        <div>
+                            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1.5">
+                                Description
+                            </label>
+                            <textarea
+                                id="description"
+                                name="description"
+                                value={formData.description}
+                                onChange={handleInputChange}
+                                rows={2}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-sm"
+                                placeholder="Add any notes about this outfit..."
+                            />
+                        </div>
+                    )}
 
                     {/* Tags */}
                     <div>
@@ -346,7 +357,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                             {/* Base Item Selection */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Choose a base item (optional)
+                                    Choose a base item
                                 </label>
                                 <div className="flex items-center space-x-3">
                                     {baseItem ? (
