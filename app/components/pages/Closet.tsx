@@ -88,7 +88,7 @@ export default function Closet() {
         onToggleFavorite={handleToggleFavorite}
       />
       
-      <div className="grid grid-cols-4 gap-4 my-10 mx-14">
+      <div className="grid grid-cols-6 gap-4 my-10 mx-14">
         {/* Add button - stays first */}
         <div 
           onClick={() => setIsModalOpen(true)}
