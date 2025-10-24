@@ -8,7 +8,7 @@ module.exports = {
     theme: {
       extend: {
         fontFamily: {
-          sans: ['neue-haas-grotesk-display', 'neue-haas-grotesk-text', 'system-ui', 'sans-serif'],
+          sans: ['Outfit', 'system-ui', 'sans-serif'],
         },
         colors: {
           'thread-lens': {
