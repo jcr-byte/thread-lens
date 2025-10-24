@@ -40,3 +40,10 @@ a {
   text-decoration: none;
 }
 
+/* Remove default outline on focused inputs */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
