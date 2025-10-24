@@ -29,8 +29,12 @@ export default function Sidebar({ isOpen, onClose, currentPage, onPageChange }: 
         w-60
       `}>
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">ThreadLens</h2>
+        <div className="flex items-center justify-between h-14 pl-2 pr-4 border-b border-gray-200">
+          <img 
+            src="/branding/thread-lens-wordmark-transparent-svg.svg"
+            alt="ThreadLens"
+            className="h-36 mt-2"
+          />
           <button
             onClick={onClose}
             className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
