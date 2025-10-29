@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'itemId is required' }, { status: 400 });
     }
     
-    // Fetch the item from the database
+    // Fetch the item from clothing_items table
     const { data: item, error: fetchError } = await supabase
-      .from('items')
+      .from('clothing_items')
       .select('*')
       .eq('id', itemId)
       .single();
@@ -32,12 +32,16 @@ export async function POST(request: NextRequest) {
     
     console.log(`Generating embeddings for item ${itemId}...`);
     
-    // Generate embeddings
+    // Generate embeddings - map clothing_items fields to embedding function
     const embeddings = await generateItemEmbeddings({
       image_url: item.image_url,
-      title: item.title,
+      title: item.name,  // map 'name' to 'title'
       category: item.category,
-      colors: item.colors,
+      colors: item.color ? [item.color] : null,  // convert single color to array
+      tags: item.tags,
+      brand: item.brand,
+      material: item.material,
+      notes: item.notes,
     });
     
     if (!embeddings.v_image && !embeddings.v_text) {
@@ -47,9 +51,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Update the item with embeddings
+    // Update the clothing_items table with embeddings
     const { error: updateError } = await supabase
-      .from('items')
+      .from('clothing_items')
       .update(embeddings)
       .eq('id', itemId);
     
@@ -77,13 +81,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Batch processing endpoint - processes items without embeddings
+// Batch processing endpoint - processes clothing items without embeddings
 export async function PUT(request: NextRequest) {
   try {
-    // Get all items without embeddings
+    // Get all clothing items without embeddings
     const { data: items, error: fetchError } = await supabase
-      .from('items')
-      .select('id, image_url, title, category, colors')
+      .from('clothing_items')
+      .select('id, image_url, name, category, color, tags, brand, material, notes')
       .or('v_image.is.null,v_text.is.null')
       .limit(10); // Process in batches of 10
     
@@ -101,13 +105,17 @@ export async function PUT(request: NextRequest) {
       try {
         const embeddings = await generateItemEmbeddings({
           image_url: item.image_url,
-          title: item.title,
+          title: item.name,
           category: item.category,
-          colors: item.colors,
+          colors: item.color ? [item.color] : null,
+          tags: item.tags,
+          brand: item.brand,
+          material: item.material,
+          notes: item.notes,
         });
         
         await supabase
-          .from('items')
+          .from('clothing_items')
           .update(embeddings)
           .eq('id', item.id);
         

@@ -22,13 +22,14 @@ export async function generateImageEmbedding(imageUrl: string): Promise<number[]
           inputs: imageUrl,
         }
       }
-    ) as number[];
+    );
     
-    if (output.length !== 768) {
-      throw new Error(`Expected 768 dimensions, got ${output.length}`);
+    // Extract embedding from Replicate response: [{ embedding: [...768 numbers...] }]
+    if (!Array.isArray(output) || output.length === 0 || !output[0]?.embedding) {
+      throw new Error('Invalid CLIP response format');
     }
     
-    return output;
+    return output[0].embedding;
   } catch (error) {
     console.error('Error generating image embedding:', error);
     throw error;
@@ -43,7 +44,7 @@ export async function generateTextEmbedding(text: string): Promise<number[]> {
     const response = await openai.embeddings.create({
       model: 'text-embedding-3-small',
       input: text,
-      dimensions: 512, // Match your schema
+      dimensions: 512,
     });
     
     return response.data[0].embedding;

@@ -167,6 +167,15 @@ export default function AddClothingModal({ isOpen, onClose, onSuccess }: AddClot
                 throw dbError;
             }
 
+            // Trigger embedding generation asynchronously (non-blocking)
+            if (data?.id) {
+                fetch('/api/embeddings/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId: data.id }),
+                }).catch(err => console.error('Failed to generate embeddings:', err));
+            }
+
             // Reset form
             setFormData({
                 name: '',
