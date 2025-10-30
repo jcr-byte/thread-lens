@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { createOutfit } from '../../lib/outfits';
 import { getUserClothingItems } from '../../lib/clothing';
 import { ClothingItem } from '../../types/clothing';
+import { supabase } from '../../lib/supabase';
 
 interface AddOutfitModalProps {
     isOpen: boolean;
@@ -62,15 +63,26 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
         setError('');
 
         try {
+            // Get user's session token
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session?.access_token) {
+                setError('Session expired. Please log in again.');
+                return;
+            }
+
             // Get IDs to exclude (previously generated items for regeneration)
             const excludeIds = aiGeneratedItems
                 .filter(item => item.id !== baseItem.id)
                 .map(item => item.id);
 
-            // Call the recommendation API
+            // Call the recommendation API with Authorization header
             const response = await fetch('/api/recommendations', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
                 body: JSON.stringify({
                     baseItemId: baseItem.id,
                     excludeIds: excludeIds.length > 0 ? excludeIds : undefined,

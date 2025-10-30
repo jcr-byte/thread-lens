@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { getAuthenticatedClient } from '@/app/lib/auth-server';
 import { generateCompleteOutfit } from '@/app/lib/recommendations';
 
 export async function POST(request: NextRequest) {
   try {
-    // Create authenticated Supabase client from user's session
-    const supabase = createRouteHandlerClient({ cookies });
+    // Get authenticated client from Authorization header
+    const { client: supabase, user, error: authError } = await getAuthenticatedClient(request);
     
-    // Get and verify the authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
+    if (authError || !supabase || !user) {
       return NextResponse.json(
         { error: 'Unauthorized - Please log in' },
         { status: 401 }
