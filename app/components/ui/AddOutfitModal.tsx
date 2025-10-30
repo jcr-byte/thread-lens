@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Check, Sparkles, User } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';   
 import { createOutfit } from '../../lib/outfits';
 import { getUserClothingItems } from '../../lib/clothing';
 import { ClothingItem } from '../../types/clothing';
@@ -21,7 +20,6 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
     const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
     const [isAIMode, setIsAIMode] = useState(false);
-    const [aiPrompt, setAiPrompt] = useState('');
     const [aiGeneratedItems, setAiGeneratedItems] = useState<ClothingItem[]>([]);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     const [baseItem, setBaseItem] = useState<ClothingItem | null>(null);
@@ -43,15 +41,20 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
 
     const loadClothingItems = async () => {
         if (!user) return;
-        const { data, error } = await getUserClothingItems(user.id);
+        const { data } = await getUserClothingItems(user.id);
         if (data) {
             setClothingItems(data);
         }
     };
 
     const generateAIOutfit = async () => {
-        if (!aiPrompt.trim()) {
-            setError('Please enter a description for your outfit');
+        if (!baseItem) {
+            setError('Please select a base item to build an outfit around');
+            return;
+        }
+
+        if (!user) {
+            setError('You must be logged in');
             return;
         }
 
@@ -59,64 +62,39 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
         setError('');
 
         try {
-            // Simulate AI generation - in a real app, this would call an AI API
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            let filteredItems = clothingItems;
-            
-            // If a base item is selected, start with it and find complementary items
-            if (baseItem) {
-                // Include the base item
-                const baseItemIncluded = [baseItem];
-                
-                // Find complementary items based on the base item's style, color, and category
-                const complementaryItems = clothingItems.filter(item => {
-                    if (item.id === baseItem.id) return false; // Don't include the base item twice
-                    
-                    // Match by category (e.g., if base is a shirt, look for pants, shoes, etc.)
-                    const baseCategory = baseItem.category?.toLowerCase() || '';
-                    const itemCategory = item.category?.toLowerCase() || '';
-                    
-                    // Simple complementary logic
-                    const isComplementary = 
-                        (baseCategory === 'top' && (itemCategory === 'bottom' || itemCategory === 'shoes' || itemCategory === 'accessories')) ||
-                        (baseCategory === 'bottom' && (itemCategory === 'top' || itemCategory === 'shoes' || itemCategory === 'accessories')) ||
-                        (baseCategory === 'dress' && (itemCategory === 'shoes' || itemCategory === 'accessories')) ||
-                        (baseCategory === 'shoes' && (itemCategory === 'top' || itemCategory === 'bottom' || itemCategory === 'accessories'));
-                    
-                    return isComplementary;
-                });
-                
-                filteredItems = [...baseItemIncluded, ...complementaryItems];
-            } else {
-                // No base item - filter based on prompt only
-                filteredItems = clothingItems.filter(item => {
-                    const prompt = aiPrompt.toLowerCase();
-                    const itemName = item.name.toLowerCase();
-                    const itemCategory = item.category?.toLowerCase() || '';
-                    const itemColor = item.color?.toLowerCase() || '';
-                    
-                    return itemName.includes(prompt) || 
-                           itemCategory.includes(prompt) || 
-                           itemColor.includes(prompt) ||
-                           prompt.includes(itemCategory) ||
-                           prompt.includes(itemColor);
-                });
+            // Get IDs to exclude (previously generated items for regeneration)
+            const excludeIds = aiGeneratedItems
+                .filter(item => item.id !== baseItem.id)
+                .map(item => item.id);
+
+            // Call the recommendation API
+            const response = await fetch('/api/recommendations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    baseItemId: baseItem.id,
+                    excludeIds: excludeIds.length > 0 ? excludeIds : undefined,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.details || 'Failed to generate outfit');
             }
 
-            if (filteredItems.length === 0) {
-                setError('No matching items found for your description. Try a different prompt or add more items to your closet.');
+            const data = await response.json();
+            
+            if (!data.outfit || data.outfit.length === 0) {
+                setError('No matching items found. Try adding more items to your closet or select a different base item.');
                 return;
             }
 
-            // Select up to 5 items for the outfit
-            const selectedItems = filteredItems.slice(0, 5);
-            setAiGeneratedItems(selectedItems);
-            setSelectedItemIds(selectedItems.map(item => item.id));
+            // Set the generated outfit
+            setAiGeneratedItems(data.outfit);
+            setSelectedItemIds(data.outfit.map((item: ClothingItem) => item.id));
             
         } catch (err) {
-            console.error('AI generation error:', err);
-            setError('Failed to generate outfit. Please try again.');
+            setError(err instanceof Error ? err.message : 'Failed to generate outfit. Please try again.');
         } finally {
             setIsGeneratingAI(false);
         }
@@ -199,7 +177,6 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
             onSuccess?.();
             onClose();
         } catch (err) {
-            console.error('Error creating outfit: ', err);
             setError(err instanceof Error ? err.message : 'Failed to create outfit. Please try again.');
         } finally {
             setIsLoading(false);
@@ -432,21 +409,14 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Describe your ideal outfit
+                                    Generate outfit with AI
                                 </label>
                                 <div className="flex space-x-2">
-                                    <input
-                                        type="text"
-                                        value={aiPrompt}
-                                        onChange={(e) => setAiPrompt(e.target.value)}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                                        placeholder={baseItem ? `Build an outfit around your ${baseItem.name.toLowerCase()}...` : "e.g., casual summer outfit for a date, professional look for work, cozy winter style..."}
-                                    />
                                     <button
                                         type="button"
                                         onClick={generateAIOutfit}
-                                        disabled={isGeneratingAI || !aiPrompt.trim()}
-                                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg transition-colors text-sm font-medium flex items-center space-x-2"
+                                        disabled={isGeneratingAI || !baseItem}
+                                        className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center space-x-2"
                                     >
                                         {isGeneratingAI ? (
                                             <>
@@ -456,11 +426,16 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                         ) : (
                                             <>
                                                 <Sparkles size={16} />
-                                                <span>Generate</span>
+                                                <span>{aiGeneratedItems.length > 0 ? 'Regenerate Outfit' : 'Generate Outfit'}</span>
                                             </>
                                         )}
                                     </button>
                                 </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    {baseItem 
+                                        ? `AI will find items that complement your ${baseItem.name.toLowerCase()}` 
+                                        : 'Select a base item to get started'}
+                                </p>
                             </div>
 
                             {/* AI Generated Items */}
