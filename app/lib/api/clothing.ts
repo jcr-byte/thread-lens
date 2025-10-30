@@ -1,12 +1,12 @@
 import { supabase } from './supabase';
 import { uploadClothingImage } from './uploadImage';
 import { ClothingItem, CreateClothingItemData } from '../../types/clothing';
-import { cacheTag } from 'next/dist/server/use-cache/cache-tag';
+import { getUserItems, toggleFavorite, deleteItem, ApiResult, ApiSuccess } from './utils';
 
 export async function createClothingItem(
     userId: string,
     data: CreateClothingItemData
-): Promise<{ data: ClothingItem | null; error: string | null }> {
+): Promise<ApiResult<ClothingItem>> {
     try {
         let imagePath = '';
         let imageUrl = '';
@@ -58,76 +58,21 @@ export async function createClothingItem(
 
 export async function getUserClothingItems(
     userId: string
-): Promise<{ data: ClothingItem[] | null; error: string | null }> {
-    const { data, error } = await supabase
-        .from('clothing_items')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        return { data: null, error: error.message };
-    }
-
-    return { data, error: null };
+): Promise<ApiResult<ClothingItem[]>> {
+    return getUserItems<ClothingItem>('clothing_items', userId);
 }
 
 export async function deleteClothingItem(
     itemId: string,
     imagePath?: string
-): Promise<{ success: boolean; error: string | null }> {
-    try {
-        // Delete image from storage if it exists
-        if (imagePath) {
-            const { error: storageError } = await supabase.storage
-                .from('clothing-images')
-                .remove([imagePath]);
-            
-            if (storageError) {
-                console.error('Error deleting image:', storageError);
-                // Continue with database deletion even if storage deletion fails
-            }
-        }
-
-        // Delete from database
-        const { error } = await supabase
-            .from('clothing_items')
-            .delete()
-            .eq('id', itemId);
-
-        if (error) {
-            return { success: false, error: error.message };
-        }
-
-        return { success: true, error: null };
-    } catch (error) {
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
+): Promise<ApiSuccess> {
+    return deleteItem('clothing_items', itemId, 'clothing-images', imagePath);
 }
 
 export async function toggleFavoriteClothingItem(
     itemId: string,
     currentFavoriteStatus: boolean
-): Promise<{ success: boolean; error: string | null }> {
-    try {
-        const { error } = await supabase
-            .from('clothing_items')
-            .update({ is_favorite: !currentFavoriteStatus })
-            .eq('id', itemId);
-
-        if (error) {
-            return { success: false, error: error.message };
-        }
-
-        return { success: true, error: null };
-    } catch (error) {
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
+): Promise<ApiSuccess> {
+    return toggleFavorite('clothing_items', itemId, currentFavoriteStatus);
 }
 

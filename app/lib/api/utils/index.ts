@@ -12,6 +12,3 @@ export { getUserItems } from './queries';
 // Mutation operations (write)
 export { toggleFavorite, deleteItem } from './mutations';
 
-// Error handling
-export { tryCatch, handleUploadResult } from './errors';
-
