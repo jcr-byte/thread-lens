@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { User, AuthState, AuthContextType } from '../types/auth';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/api/supabase';
 
 type AuthAction =
   | { type: 'LOGIN_START' }

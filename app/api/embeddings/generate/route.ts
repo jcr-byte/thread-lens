@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { generateItemEmbeddings } from '@/app/lib/embeddings';
+import { generateItemEmbeddings } from '@/app/lib/server/embeddings';
 
 // Use service role key for server-side operations
 const supabase = createClient(

@@ -1,5 +1,6 @@
+import 'server-only';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { ClothingItem, ClothingCategory } from '../types/clothing';
+import { ClothingItem, ClothingCategory } from '../../types/clothing';
 
 /**
  * Calculate cosine similarity between two vectors

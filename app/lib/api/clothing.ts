@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { uploadClothingImage } from './uploadImage';
-import { ClothingItem, CreateClothingItemData } from '../types/clothing';
+import { ClothingItem, CreateClothingItemData } from '../../types/clothing';
 import { cacheTag } from 'next/dist/server/use-cache/cache-tag';
 
 export async function createClothingItem(
@@ -130,3 +130,4 @@ export async function toggleFavoriteClothingItem(
         };
     }
 }
+

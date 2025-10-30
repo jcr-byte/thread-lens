@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { getUserOutfits } from "../../lib/outfits";
+import { getUserOutfits } from "../../lib/api/outfits";
 import { Outfit } from "../../types/outfit";
 import AddOutfitModal from "../ui/AddOutfitModal";
 

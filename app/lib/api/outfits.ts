@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { uploadOutfitImage } from './uploadImage';
-import { Outfit, CreateOutfitData } from '../types/outfit';
+import { Outfit, CreateOutfitData } from '../../types/outfit';
 
 export async function createOutfit(
     userId: string,

@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Check, Sparkles, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';   
-import { createOutfit } from '../../lib/outfits';
-import { getUserClothingItems } from '../../lib/clothing';
+import { createOutfit } from '../../lib/api/outfits';
+import { getUserClothingItems } from '../../lib/api/clothing';
 import { ClothingItem } from '../../types/clothing';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/api/supabase';
 
 interface AddOutfitModalProps {
     isOpen: boolean;

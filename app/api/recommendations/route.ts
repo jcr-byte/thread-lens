@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedClient } from '@/app/lib/auth-server';
-import { generateCompleteOutfit } from '@/app/lib/recommendations';
+import { getAuthenticatedClient } from '@/app/lib/server/auth';
+import { generateCompleteOutfit } from '@/app/lib/server/recommendations';
 
 export async function POST(request: NextRequest) {
   try {

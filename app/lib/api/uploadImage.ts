@@ -99,3 +99,4 @@ export async function uploadClothingImage(
         folder: `users/${userId}/clothing`,
     });
 }
+

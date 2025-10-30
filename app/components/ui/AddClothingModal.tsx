@@ -3,8 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Upload, Image as ImageIcon, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import { uploadUserImage } from '../../lib/uploadImage';
+import { supabase } from '../../lib/api/supabase';
+import { uploadUserImage } from '../../lib/api/uploadImage';
 import { ClothingCategory } from '../../types/clothing';
 
 interface AddClothingModalProps {
