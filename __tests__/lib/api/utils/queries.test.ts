@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getUserItems } from '@/app/lib/api/utils/queries';
-import type { ApiResult } from '@/app/lib/api/utils/types';
 
 // Mock the Supabase client
 vi.mock('@/app/lib/api/supabase', () => ({
