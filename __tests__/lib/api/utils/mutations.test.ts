@@ -108,7 +108,7 @@ describe('mutations', () => {
             expect(supabase.from).toHaveBeenCalledWith('clothing_items');
             expect(mockDelete).toHaveBeenCalled();
             expect(mockEq).toHaveBeenCalledWith('id', 'item-123');
-        });
+        }); 
 
         it('should successfully delete an item with storage cleanup', async () => {
             const { supabase } = await import('@/app/lib/api/supabase');
