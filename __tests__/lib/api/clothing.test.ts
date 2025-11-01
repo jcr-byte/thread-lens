@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createClothingItem, getUserClothingItems } from '@/app/lib/api/clothing';
+import { createClothingItem, getUserClothingItems, deleteClothingItem } from '@/app/lib/api/clothing';
 import type { CreateClothingItemData, ClothingItem } from '@/app/types/clothing';
 
 // Mock the Supabase client
 vi.mock('@/app/lib/api/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    storage: {
+      from: vi.fn(),
+    },
   },
 }));
 
@@ -479,6 +482,135 @@ describe('clothing API', () => {
       await getUserClothingItems(mockUserId);
 
       expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
+    });
+  });
+
+  describe('deleteClothingItem', () => {
+    const mockItemId = 'item-123';
+
+    it('should successfully delete a clothing item without an image', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockEq = vi.fn().mockResolvedValue({ error: null });
+      const mockDelete = vi.fn().mockReturnValue({ eq: mockEq });
+
+      vi.mocked(supabase.from).mockReturnValue({
+        delete: mockDelete,
+      } as any);
+
+      const result = await deleteClothingItem(mockItemId);
+
+      expect(result.success).toBe(true);
+      expect(result.error).toBeNull();
+
+      expect(supabase.from).toHaveBeenCalledWith('clothing_items');
+      expect(mockDelete).toHaveBeenCalled();
+      expect(mockEq).toHaveBeenCalledWith('id', mockItemId);
+    });
+
+    it('should successfully delete a clothing item with an image', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockImagePath = 'users/user-123/clothing/jacket.jpg';
+      const mockRemove = vi.fn().mockResolvedValue({ error: null });
+      const mockEq = vi.fn().mockResolvedValue({ error: null });
+      const mockDelete = vi.fn().mockReturnValue({ eq: mockEq });
+
+      vi.mocked(supabase.storage.from).mockReturnValue({
+        remove: mockRemove,
+      } as any);
+
+      vi.mocked(supabase.from).mockReturnValue({
+        delete: mockDelete,
+      } as any);
+
+      const result = await deleteClothingItem(mockItemId, mockImagePath);
+
+      expect(result.success).toBe(true);
+      expect(result.error).toBeNull();
+
+      expect(supabase.storage.from).toHaveBeenCalledWith('clothing-images');
+      expect(mockRemove).toHaveBeenCalledWith([mockImagePath]);
+      expect(supabase.from).toHaveBeenCalledWith('clothing_items');
+      expect(mockDelete).toHaveBeenCalled();
+      expect(mockEq).toHaveBeenCalledWith('id', mockItemId);
+    });
+
+    it('should continue deletion even if image removal fails', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockImagePath = 'users/user-123/clothing/missing.jpg';
+      const mockRemove = vi.fn().mockResolvedValue({
+        error: { message: 'File not found in storage' },
+      });
+      const mockEq = vi.fn().mockResolvedValue({ error: null });
+      const mockDelete = vi.fn().mockReturnValue({ eq: mockEq });
+
+      vi.mocked(supabase.storage.from).mockReturnValue({
+        remove: mockRemove,
+      } as any);
+
+      vi.mocked(supabase.from).mockReturnValue({
+        delete: mockDelete,
+      } as any);
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const result = await deleteClothingItem(mockItemId, mockImagePath);
+
+      expect(result.success).toBe(true);
+      expect(result.error).toBeNull();
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting image:', { message: 'File not found in storage' });
+      expect(supabase.from).toHaveBeenCalledWith('clothing_items');
+      expect(mockDelete).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should return error when database deletion fails', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockError = { message: 'Database deletion failed' };
+
+      vi.mocked(supabase.from).mockReturnValue({
+        delete: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
+            error: mockError,
+          }),
+        }),
+      } as any);
+
+      const result = await deleteClothingItem(mockItemId);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Database deletion failed');
+    });
+
+    it('should handle exceptions during deletion', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      vi.mocked(supabase.from).mockImplementation(() => {
+        throw new Error('Network error during deletion');
+      });
+
+      const result = await deleteClothingItem(mockItemId);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Network error during deletion');
+    });
+
+    it('should handle non-Error exceptions', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      vi.mocked(supabase.from).mockImplementation(() => {
+        throw 'String error';
+      });
+
+      const result = await deleteClothingItem(mockItemId);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Unknown error');
     });
   });
 });
