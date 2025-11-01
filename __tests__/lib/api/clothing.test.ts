@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createClothingItem } from '@/app/lib/api/clothing';
-import type { CreateClothingItemData } from '@/app/types/clothing';
+import { createClothingItem, getUserClothingItems } from '@/app/lib/api/clothing';
+import type { CreateClothingItemData, ClothingItem } from '@/app/types/clothing';
 
 // Mock the Supabase client
 vi.mock('@/app/lib/api/supabase', () => ({
@@ -322,6 +322,163 @@ describe('clothing API', () => {
           notes: fullData.notes,
         })
       );
+    });
+  });
+
+  describe('getUserClothingItems', () => {
+    const mockUserId = 'user-123';
+
+    it('should return array of clothing items when query succeeds', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockClothingItems: ClothingItem[] = [
+        {
+          id: 'item-1',
+          user_id: mockUserId,
+          name: 'Blue Denim Jacket',
+          category: 'outerwear',
+          subcategory: 'jacket',
+          brand: 'Levi\'s',
+          color: 'blue',
+          size: 'M',
+          material: 'denim',
+          image_url: 'https://example.com/jacket.jpg',
+          image_path: 'users/user-123/clothing/jacket.jpg',
+          purchase_date: '2024-01-15',
+          price: 89.99,
+          tags: ['casual', 'winter'],
+          notes: 'Perfect for layering',
+          is_favorite: false,
+          wear_count: 5,
+          created_at: '2024-01-15T00:00:00Z',
+          updated_at: '2024-01-15T00:00:00Z',
+        },
+        {
+          id: 'item-2',
+          user_id: mockUserId,
+          name: 'White Cotton T-Shirt',
+          category: 'tops',
+          color: 'white',
+          size: 'L',
+          material: 'cotton',
+          is_favorite: true,
+          wear_count: 12,
+          created_at: '2024-01-10T00:00:00Z',
+          updated_at: '2024-01-20T00:00:00Z',
+        },
+      ];
+
+      const mockSelect = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue({
+            data: mockClothingItems,
+            error: null,
+          }),
+        }),
+      });
+
+      vi.mocked(supabase.from).mockReturnValue({
+        select: mockSelect,
+      } as any);
+
+      const result = await getUserClothingItems(mockUserId);
+
+      expect(result.data).toEqual(mockClothingItems);
+      expect(result.error).toBeNull();
+      expect(supabase.from).toHaveBeenCalledWith('clothing_items');
+    });
+
+    it('should return empty array when user has no clothing items', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockSelect = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue({
+            data: [],
+            error: null,
+          }),
+        }),
+      });
+
+      vi.mocked(supabase.from).mockReturnValue({
+        select: mockSelect,
+      } as any);
+
+      const result = await getUserClothingItems(mockUserId);
+
+      expect(result.data).toEqual([]);
+      expect(result.error).toBeNull();
+    });
+
+    it('should return error when query fails', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockError = { message: 'Database connection failed' };
+
+      const mockSelect = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue({
+            data: null,
+            error: mockError,
+          }),
+        }),
+      });
+
+      vi.mocked(supabase.from).mockReturnValue({
+        select: mockSelect,
+      } as any);
+
+      const result = await getUserClothingItems(mockUserId);
+
+      expect(result.data).toBeNull();
+      expect(result.error).toBe('Database connection failed');
+    });
+
+    it('should filter by user_id correctly', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockEq = vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: [],
+          error: null,
+        }),
+      });
+
+      const mockSelect = vi.fn().mockReturnValue({
+        eq: mockEq,
+      });
+
+      vi.mocked(supabase.from).mockReturnValue({
+        select: mockSelect,
+      } as any);
+
+      await getUserClothingItems('specific-user-id');
+
+      expect(mockSelect).toHaveBeenCalledWith('*');
+      expect(mockEq).toHaveBeenCalledWith('user_id', 'specific-user-id');
+    });
+
+    it('should order results by created_at descending', async () => {
+      const { supabase } = await import('@/app/lib/api/supabase');
+
+      const mockOrder = vi.fn().mockResolvedValue({
+        data: [],
+        error: null,
+      });
+
+      const mockSelect = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          order: mockOrder,
+        }),
+      });
+
+      vi.mocked(supabase.from).mockReturnValue({
+        select: mockSelect,
+      } as any);
+
+      await getUserClothingItems(mockUserId);
+
+      expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
     });
   });
 });
