@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getUserOutfits } from "../../lib/api/outfits";
@@ -13,6 +13,8 @@ export default function Outfits() {
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOutfit, setSelectedOutfit] = useState<Outfit | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [outfitMode, setOutfitMode] = useState<'manual' | 'ai'>('ai');
 
   const loadOutfits = async () => {
     if (!user) return;
@@ -30,6 +32,12 @@ export default function Outfits() {
     }
   }, [user]);
 
+  const handleCreateOutfit = (mode: 'manual' | 'ai') => {
+    setOutfitMode(mode);
+    setIsModalOpen(true);
+    setIsDropdownOpen(false);
+  };
+
   return (
     <>
       <AddOutfitModal 
@@ -38,23 +46,56 @@ export default function Outfits() {
         onSuccess={() => {
           loadOutfits(); // Refresh the list
         }}
+        initialMode={outfitMode}
       />
       
-      <div className="grid grid-cols-6 gap-4 my-10 mx-14">
-        {/* Add button - stays first */}
-        <div 
-          onClick={() => setIsModalOpen(true)}
-          className="mx-4 my-2 aspect-square flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 hover:cursor-pointer hover:scale-105 transition-all"
-        >
-          <Plus className="text-black w-50 h-50" />
+      {/* Create Outfit Dropdown */}
+      <div className="ml-6 mt-3 mb-2 relative">
+        <div className="relative inline-block">
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-thread-lens-primary hover:bg-thread-lens-secondary text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <span>Create Outfit</span>
+            <ChevronDown size={14} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {/* Dropdown Menu */}
+          {isDropdownOpen && (
+            <>
+              {/* Backdrop to close dropdown when clicking outside */}
+              <div 
+                className="fixed inset-0 z-10" 
+                onClick={() => setIsDropdownOpen(false)}
+              />
+              
+              <div className="absolute top-full mt-1 left-0 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[180px] z-20">
+                <button
+                  onClick={() => handleCreateOutfit('ai')}
+                  className="w-full px-3 py-2 hover:bg-gray-50 transition-colors text-left text-sm font-medium text-gray-900"
+                >
+                  Create with AI
+                </button>
+                
+                <button
+                  onClick={() => handleCreateOutfit('manual')}
+                  className="w-full px-3 py-2 hover:bg-gray-50 transition-colors text-left text-sm font-medium text-gray-900"
+                >
+                  Create Manually
+                </button>
+              </div>
+            </>
+          )}
         </div>
-        
+      </div>
+      
+      <div className="grid grid-cols-6 gap-4 my-6 ml-6">
         {/* Outfit items */}
         {outfits.map((outfit) => (
           <div 
             key={outfit.id}
             onClick={() => setSelectedOutfit(outfit)}
-            className="mx-4 my-2 aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg hover:scale-105 transition-all cursor-pointer"
+            className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg hover:scale-105 transition-all cursor-pointer"
           >
             {outfit.image_url ? (
               <img 

@@ -12,15 +12,16 @@ interface AddOutfitModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    initialMode?: 'manual' | 'ai';
 }
 
-export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfitModalProps) {
+export default function AddOutfitModal({ isOpen, onClose, onSuccess, initialMode = 'ai' }: AddOutfitModalProps) {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-    const [isAIMode, setIsAIMode] = useState(false);
+    const [isAIMode, setIsAIMode] = useState(initialMode === 'ai');
     const [aiGeneratedItems, setAiGeneratedItems] = useState<ClothingItem[]>([]);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     const [baseItem, setBaseItem] = useState<ClothingItem | null>(null);
@@ -37,8 +38,10 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
     useEffect(() => {
         if (isOpen && user) {
             loadClothingItems();
+            // Reset to initial mode when modal opens
+            setIsAIMode(initialMode === 'ai');
         }
-    }, [isOpen, user]);
+    }, [isOpen, user, initialMode]);
 
     const loadClothingItems = async () => {
         if (!user) return;
@@ -230,7 +233,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                             onClick={() => setIsAIMode(false)}
                             className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
                                 !isAIMode 
-                                    ? 'bg-blue-100 text-blue-700 font-medium' 
+                                    ? 'bg-gray-100 text-gray-700 font-medium' 
                                     : 'text-gray-600 hover:bg-gray-100'
                             }`}
                         >
@@ -242,7 +245,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                             onClick={() => setIsAIMode(true)}
                             className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
                                 isAIMode 
-                                    ? 'bg-purple-100 text-purple-700 font-medium' 
+                                    ? 'bg-thread-lens-accent text-thread-lens-primary font-medium' 
                                     : 'text-gray-600 hover:bg-gray-100'
                             }`}
                         >
@@ -268,7 +271,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                     name="name"
                                     value={formData.name}
                                     onChange={handleInputChange}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all text-sm"
                                     placeholder="e.g., Summer Beach Day"
                                     required
                                 />
@@ -285,7 +288,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                 name="occasion"
                                 value={formData.occasion}
                                 onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all text-sm"
                                 placeholder="e.g., Casual, Formal"
                             />
                         </div>
@@ -300,7 +303,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                 name="season"
                                 value={formData.season}
                                 onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all text-sm"
                                 placeholder="e.g., Summer, Winter"
                             />
                         </div>
@@ -318,7 +321,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                 value={formData.description}
                                 onChange={handleInputChange}
                                 rows={2}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all resize-none text-sm"
                                 placeholder="Add any notes about this outfit..."
                             />
                         </div>
@@ -335,7 +338,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                             name="tags"
                             value={formData.tags}
                             onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all text-sm"
                             placeholder="e.g., comfortable, stylish, work"
                         />
                     </div>
@@ -350,7 +353,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                 </label>
                                 <div className="flex items-center space-x-3">
                                     {baseItem ? (
-                                        <div className="flex items-center space-x-3 bg-purple-50 border border-purple-200 rounded-lg p-3">
+                                        <div className="flex items-center space-x-3 bg-thread-lens-accent border border-thread-lens-primary/20 rounded-lg p-3">
                                             <div className="w-12 h-12 rounded-lg overflow-hidden">
                                                 {baseItem.image_url ? (
                                                     <img
@@ -380,7 +383,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                         <button
                                             type="button"
                                             onClick={() => setShowBaseItemSelector(!showBaseItemSelector)}
-                                            className="flex items-center space-x-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-purple-400 hover:text-purple-600 transition-colors"
+                                            className="flex items-center space-x-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-thread-lens-primary hover:text-thread-lens-primary transition-colors"
                                         >
                                             <Plus size={16} />
                                             <span>Select base item</span>
@@ -399,7 +402,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                                         setBaseItem(item);
                                                         setShowBaseItemSelector(false);
                                                     }}
-                                                    className="relative aspect-square rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-purple-300 transition-all"
+                                                    className="relative aspect-square rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-thread-lens-primary transition-all"
                                                 >
                                                     {item.image_url ? (
                                                         <img
@@ -428,7 +431,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                         type="button"
                                         onClick={generateAIOutfit}
                                         disabled={isGeneratingAI || !baseItem}
-                                        className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+                                        className="flex-1 px-4 py-2 bg-thread-lens-primary hover:bg-thread-lens-secondary disabled:bg-gray-400 text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center space-x-2"
                                     >
                                         {isGeneratingAI ? (
                                             <>
@@ -453,18 +456,18 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                             {/* AI Generated Items */}
                             {aiGeneratedItems.length > 0 && (
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                                        AI Selected Items ({aiGeneratedItems.length} items)
-                                        {baseItem && <span className="text-xs text-purple-600 ml-2">• Built around your {baseItem.name}</span>}
-                                    </label>
+                                <label className="block text-sm font-medium text-gray-700 mb-3">
+                                    AI Selected Items ({aiGeneratedItems.length} items)
+                                    {baseItem && <span className="text-xs text-thread-lens-primary ml-2">• Built around your {baseItem.name}</span>}
+                                </label>
                                     <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
                                         {aiGeneratedItems.map((item) => (
                                             <div
                                                 key={item.id}
                                                 className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer transition-all ${
                                                     baseItem && item.id === baseItem.id 
-                                                        ? 'ring-4 ring-purple-600' 
-                                                        : 'ring-4 ring-purple-500'
+                                                        ? 'ring-4 ring-thread-lens-primary' 
+                                                        : 'ring-4 ring-thread-lens-dark'
                                                 }`}
                                             >
                                                 {item.image_url ? (
@@ -480,8 +483,8 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                                 )}
                                                 <div className={`absolute top-1 right-1 text-white rounded-full p-1 ${
                                                     baseItem && item.id === baseItem.id 
-                                                        ? 'bg-purple-600' 
-                                                        : 'bg-purple-500'
+                                                        ? 'bg-thread-lens-primary' 
+                                                        : 'bg-thread-lens-dark'
                                                 }`}>
                                                     {baseItem && item.id === baseItem.id ? (
                                                         <User size={16} />
@@ -490,7 +493,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                                     )}
                                                 </div>
                                                 {baseItem && item.id === baseItem.id && (
-                                                    <div className="absolute bottom-1 left-1 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                                                    <div className="absolute bottom-1 left-1 bg-thread-lens-primary text-white text-xs px-2 py-1 rounded">
                                                         Base
                                                     </div>
                                                 )}
@@ -518,7 +521,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                             onClick={() => toggleItemSelection(item.id)}
                                             className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer transition-all ${
                                                 selectedItemIds.includes(item.id)
-                                                    ? 'ring-4 ring-blue-500'
+                                                    ? 'ring-4 ring-thread-lens-primary'
                                                     : 'hover:ring-2 hover:ring-gray-300'
                                             }`}
                                         >
@@ -534,7 +537,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                                                 </div>
                                             )}
                                             {selectedItemIds.includes(item.id) && (
-                                                <div className="absolute top-1 right-1 bg-blue-500 text-white rounded-full p-1">
+                                                <div className="absolute top-1 right-1 bg-thread-lens-primary text-white rounded-full p-1">
                                                     <Check size={16} />
                                                 </div>
                                             )}
@@ -556,11 +559,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess }: AddOutfit
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className={`w-full font-semibold py-2.5 px-4 rounded-lg transition-colors text-sm ${
-                            isAIMode 
-                                ? 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400' 
-                                : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
-                        } text-white`}
+                        className="w-full font-semibold py-2.5 px-4 rounded-lg transition-colors text-sm bg-thread-lens-primary hover:bg-thread-lens-secondary disabled:bg-gray-400 text-white"
                     >
                         {isLoading ? (
                             <div className="flex items-center justify-center">
