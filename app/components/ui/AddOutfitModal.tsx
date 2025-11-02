@@ -219,40 +219,12 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess, initialMode
 
                 {/* Header */}
                 <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-1">Create New Outfit</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                        {isAIMode ? 'Create Outfit with AI' : 'Create Outfit Manually'}
+                    </h2>
                     <p className="text-sm text-gray-600">
                         {isAIMode ? 'Let AI help you create the perfect outfit' : 'Select clothing items to create an outfit'}
                     </p>
-                </div>
-
-                {/* Toggle Switch */}
-                <div className="mb-6">
-                    <div className="flex items-center justify-center space-x-4">
-                        <button
-                            type="button"
-                            onClick={() => setIsAIMode(false)}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                                !isAIMode 
-                                    ? 'bg-gray-100 text-gray-700 font-medium' 
-                                    : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                            <User size={18} />
-                            <span>Manual</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setIsAIMode(true)}
-                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                                isAIMode 
-                                    ? 'bg-thread-lens-accent text-thread-lens-primary font-medium' 
-                                    : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                        >
-                            <Sparkles size={18} />
-                            <span>AI Assistant</span>
-                        </button>
-                    </div>
                 </div>
 
                 {/* Form */}
