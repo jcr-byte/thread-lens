@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { getUserOutfits } from "../../lib/api/outfits";
 import { getClothingItemsByIds } from "../../lib/api/clothing";
 import { Outfit } from "../../types/outfit";
@@ -11,7 +11,12 @@ import AddOutfitModal from "../ui/AddOutfitModal";
 import AIOutfitModal from "../ui/AIOutfitModal";
 
 export default function Outfits() {
-  const { user } = useAuth();
+  const user = useRequireAuth();
+  
+  // Early return if auth is still loading
+  if (!user) {
+    return null;
+  }
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
@@ -24,7 +29,6 @@ export default function Outfits() {
   const hoverTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const loadOutfits = async () => {
-    if (!user) return;
     setIsLoading(true);
     const { data, error } = await getUserOutfits(user.id);
     if (data) {

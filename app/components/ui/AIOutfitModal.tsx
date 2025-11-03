@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Filter, Check, RefreshCw } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { getUserClothingItems } from '../../lib/api/clothing';
 import { ClothingItem, ClothingCategory } from '../../types/clothing';
 import { createOutfit } from '../../lib/api/outfits';
@@ -15,7 +15,7 @@ interface AIOutfitModalProps {
 }
 
 export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitModalProps) {
-    const { user } = useAuth();
+    const user = useRequireAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
     const [filteredItems, setFilteredItems] = useState<ClothingItem[]>([]);
@@ -147,7 +147,12 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
     };
 
     const handleGenerate = async () => {
-        if (!user || selectedItemIds.length === 0) {
+        if (!user) {
+            setError('Please log in to generate outfits');
+            return;
+        }
+        
+        if (selectedItemIds.length === 0) {
             setError('Please select at least one base item');
             return;
         }
@@ -201,7 +206,12 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
     };
 
     const handleRegenerate = async () => {
-        if (!user || selectedItemIds.length === 0) {
+        if (!user) {
+            setError('Please log in to generate outfits');
+            return;
+        }
+        
+        if (selectedItemIds.length === 0) {
             setError('Cannot regenerate: no base items selected');
             return;
         }

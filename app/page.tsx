@@ -5,10 +5,11 @@ import Header from "./components/Header";
 import Closet from "./components/pages/Closet";
 import Outfits from "./components/pages/Outfits";
 import Sidebar from "./components/Sidebar";
+import RequireAuth from "./components/auth/RequireAuth";
 
 export type Page = 'closet' | 'outfits' | 'profile' | 'settings';
 
-export default function Home() {
+function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('closet');
 
@@ -52,5 +53,13 @@ export default function Home() {
         {renderPage()}
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <RequireAuth>
+      <AppContent />
+    </RequireAuth>
   );
 }

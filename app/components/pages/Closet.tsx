@@ -2,21 +2,25 @@
 
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { getUserClothingItems, deleteClothingItem, toggleFavoriteClothingItem } from "../../lib/api/clothing";
 import { ClothingItem } from "../../types/clothing";
 import AddClothingModal from "../ui/AddClothingModal";
 import ClothingItemModal from "../ui/ClothingItemModal";
 
 export default function Closet() {
-  const { user } = useAuth();
+  const user = useRequireAuth();
+  
+  // Early return if auth is still loading
+  if (!user) {
+    return null;
+  }
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<ClothingItem | null>(null);
 
   const loadClothingItems = async () => {
-    if (!user) return;
     setIsLoading(true);
     const { data, error } = await getUserClothingItems(user.id);
     if (data) {
