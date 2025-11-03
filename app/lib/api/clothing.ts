@@ -62,6 +62,32 @@ export async function getUserClothingItems(
     return getUserItems<ClothingItem>('clothing_items', userId);
 }
 
+export async function getClothingItemsByIds(
+    itemIds: string[]
+): Promise<ApiResult<ClothingItem[]>> {
+    try {
+        if (itemIds.length === 0) {
+            return { data: [], error: null };
+        }
+
+        const { data, error } = await supabase
+            .from('clothing_items')
+            .select('*')
+            .in('id', itemIds);
+
+        if (error) {
+            return { data: null, error: error.message };
+        }
+
+        return { data: data || [], error: null };
+    } catch (error) {
+        return {
+            data: null,
+            error: error instanceof Error ? error.message : 'Unknown error'
+        };
+    }
+}
+
 export async function deleteClothingItem(
     itemId: string,
     imagePath?: string

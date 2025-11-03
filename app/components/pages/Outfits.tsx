@@ -1,10 +1,12 @@
 "use client"
 
 import { ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getUserOutfits } from "../../lib/api/outfits";
+import { getClothingItemsByIds } from "../../lib/api/clothing";
 import { Outfit } from "../../types/outfit";
+import { ClothingItem } from "../../types/clothing";
 import AddOutfitModal from "../ui/AddOutfitModal";
 import AIOutfitModal from "../ui/AIOutfitModal";
 
@@ -16,6 +18,10 @@ export default function Outfits() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOutfit, setSelectedOutfit] = useState<Outfit | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [outfitItemsMap, setOutfitItemsMap] = useState<Record<string, ClothingItem[]>>({});
+  const [hoveredOutfitId, setHoveredOutfitId] = useState<string | null>(null);
+  const [showNameForOutfit, setShowNameForOutfit] = useState<string | null>(null);
+  const hoverTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const loadOutfits = async () => {
     if (!user) return;
@@ -23,6 +29,20 @@ export default function Outfits() {
     const { data, error } = await getUserOutfits(user.id);
     if (data) {
       setOutfits(data);
+      
+      // Load clothing items for each outfit
+      const itemsMap: Record<string, ClothingItem[]> = {};
+      for (const outfit of data) {
+        if (outfit.clothing_item_ids.length > 0) {
+          // Get first 4 items for preview
+          const itemIdsToFetch = outfit.clothing_item_ids.slice(0, 4);
+          const { data: items } = await getClothingItemsByIds(itemIdsToFetch);
+          if (items) {
+            itemsMap[outfit.id] = items;
+          }
+        }
+      }
+      setOutfitItemsMap(itemsMap);
     }
     setIsLoading(false);
   };
@@ -41,6 +61,36 @@ export default function Outfits() {
     }
     setIsDropdownOpen(false);
   };
+
+  const handleMouseEnter = (outfitId: string) => {
+    setHoveredOutfitId(outfitId);
+    // Clear any existing timeout for this outfit
+    if (hoverTimeoutRef.current[outfitId]) {
+      clearTimeout(hoverTimeoutRef.current[outfitId]);
+    }
+    // Set timeout to show name after 2 seconds
+    hoverTimeoutRef.current[outfitId] = setTimeout(() => {
+      setShowNameForOutfit(outfitId);
+    }, 1000);
+  };
+
+  const handleMouseLeave = (outfitId: string) => {
+    setHoveredOutfitId(null);
+    // Clear timeout if mouse leaves before 2 seconds
+    if (hoverTimeoutRef.current[outfitId]) {
+      clearTimeout(hoverTimeoutRef.current[outfitId]);
+      delete hoverTimeoutRef.current[outfitId];
+    }
+    // Hide name immediately
+    setShowNameForOutfit(null);
+  };
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(hoverTimeoutRef.current).forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
 
   return (
     <>
@@ -106,26 +156,70 @@ export default function Outfits() {
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-6 gap-4 my-6 ml-6 mr-6 pb-6">
             {/* Outfit items */}
-            {outfits.map((outfit) => (
-              <div 
-                key={outfit.id}
-                onClick={() => setSelectedOutfit(outfit)}
-                className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg hover:scale-105 transition-all cursor-pointer"
-              >
-                {outfit.image_url ? (
-                  <img 
-                    src={outfit.image_url} 
-                    alt={outfit.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-600 p-4">
-                    <span className="text-lg font-semibold text-center">{outfit.name}</span>
-                    <span className="text-sm text-gray-400 mt-2">{outfit.clothing_item_ids.length} items</span>
+            {outfits.map((outfit) => {
+              const previewItems = outfitItemsMap[outfit.id] || [];
+              const hasItems = previewItems.length > 0;
+              
+              const isShowingName = showNameForOutfit === outfit.id;
+              
+              return (
+                <div 
+                  key={outfit.id}
+                  onClick={() => setSelectedOutfit(outfit)}
+                  onMouseEnter={() => handleMouseEnter(outfit.id)}
+                  onMouseLeave={() => handleMouseLeave(outfit.id)}
+                  className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:shadow-lg hover:scale-105 transition-all cursor-pointer relative"
+                >
+                  {outfit.image_url ? (
+                    <img 
+                      src={outfit.image_url} 
+                      alt={outfit.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : hasItems ? (
+                    <div className="w-full h-full grid grid-cols-2 gap-1 p-1">
+                      {previewItems.map((item, index) => (
+                        <div key={item.id} className="relative bg-gray-200 overflow-hidden aspect-square">
+                          {item.image_url ? (
+                            <img 
+                              src={item.image_url} 
+                              alt={item.name}
+                              className="w-full h-full object-cover min-w-0 min-h-0"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs p-1 text-center">
+                              <span className="truncate">{item.name}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {/* Fill empty slots if less than 4 items */}
+                      {Array.from({ length: Math.max(0, 4 - previewItems.length) }).map((_, index) => (
+                        <div key={`empty-${index}`} className="bg-gray-100 overflow-hidden aspect-square" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-600 p-4">
+                      <span className="text-lg font-semibold text-center">{outfit.name}</span>
+                      <span className="text-sm text-gray-400 mt-2">{outfit.clothing_item_ids.length} items</span>
+                    </div>
+                  )}
+                  {/* Hover overlay with outfit name */}
+                  <div 
+                    className={`absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity duration-300 ${
+                      isShowingName ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    <div className="text-white text-center px-4">
+                      <p className="text-lg font-semibold">{outfit.name}</p>
+                      {outfit.occasion && (
+                        <p className="text-sm text-white/80 mt-1">{outfit.occasion}</p>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

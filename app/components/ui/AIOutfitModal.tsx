@@ -542,7 +542,7 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
                 {currentStep === 'details' && (
                 <>
                 <div className="flex-1 overflow-y-auto">
-                    <div className="space-y-6">
+                    <div className="space-y-6 px-2">
                         {/* Selected Items Preview */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-3">
