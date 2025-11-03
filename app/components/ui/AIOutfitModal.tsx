@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Filter } from 'lucide-react';
+import { X, Sparkles, Filter, Check, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserClothingItems } from '../../lib/api/clothing';
 import { ClothingItem, ClothingCategory } from '../../types/clothing';
+import { createOutfit } from '../../lib/api/outfits';
+import { supabase } from '../../lib/api/supabase';
 
 interface AIOutfitModalProps {
     isOpen: boolean;
@@ -18,7 +20,7 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
     const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
     const [filteredItems, setFilteredItems] = useState<ClothingItem[]>([]);
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-    const [currentStep, setCurrentStep] = useState<'select' | 'details'>('select');
+    const [currentStep, setCurrentStep] = useState<'select' | 'details' | 'result'>('select');
     
     // Filter states
     const [selectedCategory, setSelectedCategory] = useState<ClothingCategory | 'all'>('all');
@@ -29,6 +31,10 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
     // Outfit details
     const [occasion, setOccasion] = useState('');
     const [description, setDescription] = useState('');
+    
+    // Generated outfit
+    const [generatedOutfit, setGeneratedOutfit] = useState<ClothingItem[]>([]);
+    const [error, setError] = useState('');
 
     // Load user's clothing items when modal opens and reset state
     useEffect(() => {
@@ -38,6 +44,8 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
             setSelectedItemIds([]);
             setOccasion('');
             setDescription('');
+            setGeneratedOutfit([]);
+            setError('');
             resetFilters();
         }
     }, [isOpen, user]);
@@ -131,16 +139,157 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
     };
 
     const handleBack = () => {
-        setCurrentStep('select');
+        if (currentStep === 'result') {
+            setCurrentStep('details');
+        } else {
+            setCurrentStep('select');
+        }
     };
 
-    const handleGenerate = () => {
-        // TODO: Implement AI outfit generation
-        console.log('Generating outfit with:', {
-            selectedItemIds,
-            occasion,
-            description
-        });
+    const handleGenerate = async () => {
+        if (!user || selectedItemIds.length === 0) {
+            setError('Please select at least one base item');
+            return;
+        }
+
+        setIsLoading(true);
+        setError('');
+
+        try {
+            // Get session token for API call
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session) {
+                throw new Error('Please log in to generate outfits');
+            }
+
+            // Use the first selected item as the base item
+            const baseItemId = selectedItemIds[0];
+            const excludeIds = selectedItemIds.slice(1);
+
+            // Call the recommendation API
+            const response = await fetch('/api/recommendations', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                    baseItemId: baseItemId,
+                    excludeIds: excludeIds.length > 0 ? excludeIds : undefined,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.details || errorData.error || 'Failed to generate outfit');
+            }
+
+            const data = await response.json();
+            
+            if (!data.outfit || data.outfit.length === 0) {
+                throw new Error('No matching items found. Try adding more items to your closet or select a different base item.');
+            }
+
+            // Set the generated outfit and move to result step
+            setGeneratedOutfit(data.outfit);
+            setCurrentStep('result');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to generate outfit');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRegenerate = async () => {
+        if (!user || selectedItemIds.length === 0) {
+            setError('Cannot regenerate: no base items selected');
+            return;
+        }
+
+        setIsLoading(true);
+        setError('');
+
+        try {
+            // Get session token for API call
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session) {
+                throw new Error('Please log in to generate outfits');
+            }
+
+            // Use the first selected item as the base item
+            const baseItemId = selectedItemIds[0];
+            // Exclude all previously selected items AND current outfit items to get different results
+            const currentOutfitIds = generatedOutfit.map(item => item.id);
+            const excludeIds = [...selectedItemIds.slice(1), ...currentOutfitIds.filter(id => !selectedItemIds.includes(id))];
+
+            // Call the recommendation API
+            const response = await fetch('/api/recommendations', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                    baseItemId: baseItemId,
+                    excludeIds: excludeIds.length > 0 ? excludeIds : undefined,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.details || errorData.error || 'Failed to regenerate outfit');
+            }
+
+            const data = await response.json();
+            
+            if (!data.outfit || data.outfit.length === 0) {
+                throw new Error('No matching items found. Try adding more items to your closet or select a different base item.');
+            }
+
+            // Update the generated outfit with new results
+            setGeneratedOutfit(data.outfit);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to regenerate outfit');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSaveOutfit = async () => {
+        if (!user || generatedOutfit.length === 0) {
+            setError('No outfit to save');
+            return;
+        }
+
+        setIsLoading(true);
+        setError('');
+
+        try {
+            const outfitName = `AI Outfit ${new Date().toLocaleDateString()}`;
+            
+            const { data, error: createError } = await createOutfit(user.id, {
+                name: outfitName,
+                description: description || undefined,
+                clothing_item_ids: generatedOutfit.map(item => item.id),
+                occasion: occasion || undefined,
+            });
+
+            if (createError) {
+                throw new Error(createError);
+            }
+
+            // Reset and close
+            setGeneratedOutfit([]);
+            setSelectedItemIds([]);
+            setOccasion('');
+            setDescription('');
+            onSuccess?.();
+            onClose();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to save outfit');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -167,15 +316,24 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
                     <div className="flex items-center space-x-2 mb-1">
                         <Sparkles className="text-purple-600" size={24} />
                         <h2 className="text-2xl font-bold text-gray-900">
-                            {currentStep === 'select' ? 'Create AI Outfit' : 'Outfit Details'}
+                            {currentStep === 'select' ? 'Create AI Outfit' : 
+                             currentStep === 'details' ? 'Outfit Details' : 
+                             'Generated Outfit'}
                         </h2>
                     </div>
                     <p className="text-sm text-gray-600">
                         {currentStep === 'select' 
                             ? 'Select up to 3 base items for your outfit'
-                            : 'Add optional details for your outfit'
+                            : currentStep === 'details'
+                            ? 'Add optional details for your outfit'
+                            : 'Review your AI-generated outfit and save it to your collection'
                         }
                     </p>
+                    {error && (
+                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-sm text-red-600">{error}</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Step 1: Item Selection */}
@@ -470,6 +628,90 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
                             <>
                                 <Sparkles size={16} />
                                 <span>Generate</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+                </>
+                )}
+
+                {/* Step 3: Generated Outfit Result */}
+                {currentStep === 'result' && (
+                <>
+                <div className="flex-1 overflow-y-auto">
+                    {/* 2-Column Grid Layout */}
+                    <div className="grid grid-cols-2 gap-4">
+                        {generatedOutfit.map((item, index) => (
+                            <div
+                                key={item.id}
+                                className="aspect-square rounded-lg overflow-hidden bg-gray-100 relative group"
+                            >
+                                {item.image_url ? (
+                                    <img
+                                        src={item.image_url}
+                                        alt={item.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-600 p-4">
+                                        <span className="text-sm font-semibold text-center mb-1">{item.name}</span>
+                                        <span className="text-xs text-gray-400 capitalize">{item.category}</span>
+                                    </div>
+                                )}
+                                {/* Item info overlay on hover */}
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <p className="text-white text-sm font-medium truncate">{item.name}</p>
+                                    {item.brand && (
+                                        <p className="text-white/80 text-xs truncate">{item.brand}</p>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Step 3 Action Buttons */}
+                <div className="mt-6 flex space-x-3">
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                    >
+                        Back
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleRegenerate}
+                        disabled={isLoading}
+                        className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:cursor-not-allowed text-gray-700 rounded-lg transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+                    >
+                        {isLoading ? (
+                            <>
+                                <RefreshCw size={16} className="animate-spin" />
+                                <span>Regenerating...</span>
+                            </>
+                        ) : (
+                            <>
+                                <RefreshCw size={16} />
+                                <span>Regenerate</span>
+                            </>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSaveOutfit}
+                        disabled={isLoading}
+                        className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+                    >
+                        {isLoading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                <span>Saving...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Check size={16} />
+                                <span>Save Outfit</span>
                             </>
                         )}
                     </button>
