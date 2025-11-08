@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Filter, Check, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Sparkles, Filter, Check, RefreshCw, ChevronDown } from 'lucide-react';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { getUserClothingItems } from '../../lib/api/clothing';
 import { ClothingItem, ClothingCategory } from '../../types/clothing';
@@ -31,6 +31,8 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
     // Outfit details
     const [occasion, setOccasion] = useState('');
     const [description, setDescription] = useState('');
+    const [isOccasionDropdownOpen, setIsOccasionDropdownOpen] = useState(false);
+    const occasionDropdownRef = useRef<HTMLDivElement>(null);
     
     // Generated outfit
     const [generatedOutfit, setGeneratedOutfit] = useState<ClothingItem[]>([]);
@@ -56,6 +58,50 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
             resetFilters();
         }
     }, [isOpen, user]);
+
+    // Close occasion dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (occasionDropdownRef.current && !occasionDropdownRef.current.contains(event.target as Node)) {
+                setIsOccasionDropdownOpen(false);
+            }
+        };
+
+        if (isOccasionDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOccasionDropdownOpen]);
+
+    const occasionOptions = [
+        'Casual',
+        'Business Casual',
+        'Smart Casual',
+        'Formal',
+        'Business',
+        'Date Night',
+        'Wedding',
+        'Party',
+        'Cocktail',
+        'Beach',
+        'Workout',
+        'Athletic',
+        'Travel',
+        'Everyday',
+        'Evening',
+        'Brunch',
+        'Dinner',
+        'Outdoor',
+        'Holiday',
+    ];
+
+    const handleOccasionSelect = (selectedOccasion: string) => {
+        setOccasion(selectedOccasion);
+        setIsOccasionDropdownOpen(false);
+    };
 
     // Apply filters whenever items or filter states change
     useEffect(() => {
@@ -656,18 +702,54 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
                         </div>
 
                         {/* Occasion Input */}
-                        <div>
+                        <div className="relative" ref={occasionDropdownRef}>
                             <label htmlFor="occasion" className="block text-sm font-medium text-gray-700 mb-2">
                                 Occasion (Optional)
                             </label>
-                            <input
-                                type="text"
-                                id="occasion"
-                                value={occasion}
-                                onChange={(e) => setOccasion(e.target.value)}
-                                placeholder="e.g., Casual, Formal, Date Night"
-                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                            />
+                            <button
+                                type="button"
+                                onClick={() => setIsOccasionDropdownOpen(!isOccasionDropdownOpen)}
+                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm text-left flex items-center justify-between bg-white hover:border-gray-400"
+                            >
+                                <span className={occasion ? 'text-gray-900' : 'text-gray-500'}>
+                                    {occasion || 'Select an occasion'}
+                                </span>
+                                <ChevronDown
+                                    size={16}
+                                    className={`transition-transform ${isOccasionDropdownOpen ? 'rotate-180' : ''}`}
+                                />
+                            </button>
+
+                            {/* Custom Dropdown Menu */}
+                            {isOccasionDropdownOpen && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOccasionSelect('')}
+                                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
+                                            !occasion
+                                                ? 'bg-gray-50 text-gray-900 font-medium'
+                                                : 'text-gray-700'
+                                        }`}
+                                    >
+                                        Select an occasion
+                                    </button>
+                                    {occasionOptions.map((option) => (
+                                        <button
+                                            key={option}
+                                            type="button"
+                                            onClick={() => handleOccasionSelect(option)}
+                                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
+                                                occasion === option
+                                                    ? 'bg-purple-100 text-purple-700 font-medium'
+                                                    : 'text-gray-700'
+                                            }`}
+                                        >
+                                            {option}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Description Input */}

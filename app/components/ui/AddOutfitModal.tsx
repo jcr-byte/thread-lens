@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Check, Sparkles, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Plus, Check, Sparkles, User, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';   
 import { createOutfit } from '../../lib/api/outfits';
 import { getUserClothingItems } from '../../lib/api/clothing';
@@ -26,6 +26,8 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess, initialMode
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     const [baseItem, setBaseItem] = useState<ClothingItem | null>(null);
     const [showBaseItemSelector, setShowBaseItemSelector] = useState(false);
+    const [isOccasionDropdownOpen, setIsOccasionDropdownOpen] = useState(false);
+    const occasionDropdownRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -42,6 +44,53 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess, initialMode
             setIsAIMode(initialMode === 'ai');
         }
     }, [isOpen, user, initialMode]);
+
+    // Close occasion dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (occasionDropdownRef.current && !occasionDropdownRef.current.contains(event.target as Node)) {
+                setIsOccasionDropdownOpen(false);
+            }
+        };
+
+        if (isOccasionDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOccasionDropdownOpen]);
+
+    const occasionOptions = [
+        'Casual',
+        'Business Casual',
+        'Smart Casual',
+        'Formal',
+        'Business',
+        'Date Night',
+        'Wedding',
+        'Party',
+        'Cocktail',
+        'Beach',
+        'Workout',
+        'Athletic',
+        'Travel',
+        'Everyday',
+        'Evening',
+        'Brunch',
+        'Dinner',
+        'Outdoor',
+        'Holiday',
+    ];
+
+    const handleOccasionSelect = (occasion: string) => {
+        setFormData({
+            ...formData,
+            occasion: occasion,
+        });
+        setIsOccasionDropdownOpen(false);
+    };
 
     const loadClothingItems = async () => {
         if (!user) return;
@@ -116,7 +165,7 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess, initialMode
     };
 
     const handleInputChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
         setFormData({
             ...formData,
@@ -250,19 +299,54 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess, initialMode
                             </div>
                         )}
 
-                        <div>
+                        <div className="relative" ref={occasionDropdownRef}>
                             <label htmlFor="occasion" className="block text-sm font-medium text-gray-700 mb-1.5">
                                 Occasion
                             </label>
-                            <input
-                                type="text"
-                                id="occasion"
-                                name="occasion"
-                                value={formData.occasion}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all text-sm"
-                                placeholder="e.g., Casual, Formal"
-                            />
+                            <button
+                                type="button"
+                                onClick={() => setIsOccasionDropdownOpen(!isOccasionDropdownOpen)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all text-sm text-left flex items-center justify-between bg-white hover:border-gray-400"
+                            >
+                                <span className={formData.occasion ? 'text-gray-900' : 'text-gray-500'}>
+                                    {formData.occasion || 'Select an occasion'}
+                                </span>
+                                <ChevronDown
+                                    size={16}
+                                    className={`transition-transform ${isOccasionDropdownOpen ? 'rotate-180' : ''}`}
+                                />
+                            </button>
+
+                            {/* Custom Dropdown Menu */}
+                            {isOccasionDropdownOpen && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOccasionSelect('')}
+                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
+                                            !formData.occasion
+                                                ? 'bg-gray-50 text-gray-900 font-medium'
+                                                : 'text-gray-700'
+                                        }`}
+                                    >
+                                        Select an occasion
+                                    </button>
+                                    {occasionOptions.map((option) => (
+                                        <button
+                                            key={option}
+                                            type="button"
+                                            onClick={() => handleOccasionSelect(option)}
+                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
+                                                formData.occasion === option
+                                                    ? 'bg-thread-lens-primary/10 text-thread-lens-primary font-medium'
+                                                    : 'text-gray-700'
+                                            }`}
+                                        >
+                                            {option}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div>
