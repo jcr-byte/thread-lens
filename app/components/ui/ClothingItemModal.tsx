@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, Heart, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Heart, Trash2, ChevronDown, ChevronUp, Tag, DollarSign, Info } from 'lucide-react';
 import { ClothingItem } from '../../types/clothing';
 
 interface ClothingItemModalProps {
@@ -19,6 +19,12 @@ export default function ClothingItemModal({
   onDelete,
   onToggleFavorite,
 }: ClothingItemModalProps) {
+  const [expandedSections, setExpandedSections] = useState({
+    details: false,
+    purchaseInfo: false,
+    additional: false,
+  });
+
   if (!isOpen || !item) return null;
 
   const handleDelete = () => {
@@ -33,6 +39,19 @@ export default function ClothingItemModal({
       onToggleFavorite(item.id);
     }
   };
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
+  // Check if sections have any data
+  const hasDetailsData =
+    item.subcategory || item.brand || item.color || item.size || item.material;
+  const hasPurchaseData = item.price || item.purchase_date;
+  const hasAdditionalData = (item.tags && item.tags.length > 0) || item.notes;
 
   return (
     <div 
@@ -98,104 +117,180 @@ export default function ClothingItemModal({
             <h2 className="text-3xl font-bold text-gray-900 mb-4">{item.name}</h2>
 
             <div className="space-y-4">
-              {/* Category */}
+              {/* Always visible: Category */}
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Category</label>
                 <p className="text-base text-gray-900 capitalize">{item.category}</p>
               </div>
 
-              {/* Subcategory */}
-              {item.subcategory && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Subcategory
-                  </label>
-                  <p className="text-base text-gray-900">{item.subcategory}</p>
-                </div>
-              )}
-
-              {/* Brand */}
-              {item.brand && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Brand</label>
-                  <p className="text-base text-gray-900">{item.brand}</p>
-                </div>
-              )}
-
-              {/* Color and Size */}
-              <div className="grid grid-cols-2 gap-4">
-                {item.color && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">Color</label>
-                    <p className="text-base text-gray-900">{item.color}</p>
-                  </div>
-                )}
-                {item.size && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">Size</label>
-                    <p className="text-base text-gray-900">{item.size}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Material */}
-              {item.material && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Material</label>
-                  <p className="text-base text-gray-900">{item.material}</p>
-                </div>
-              )}
-
-              {/* Price and Purchase Date */}
-              <div className="grid grid-cols-2 gap-4">
-                {item.price && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">Price</label>
-                    <p className="text-base text-gray-900">${item.price.toFixed(2)}</p>
-                  </div>
-                )}
-                {item.purchase_date && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">
-                      Purchase Date
-                    </label>
-                    <p className="text-base text-gray-900">
-                      {new Date(item.purchase_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Tags */}
-              {item.tags && item.tags.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-2">Tags</label>
-                  <div className="flex flex-wrap gap-2">
-                    {item.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Notes */}
-              {item.notes && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Notes</label>
-                  <p className="text-base text-gray-900 whitespace-pre-wrap">{item.notes}</p>
-                </div>
-              )}
-
-              {/* Wear Count */}
+              {/* Always visible: Wear Count */}
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Wear Count</label>
                 <p className="text-base text-gray-900">{item.wear_count} times</p>
               </div>
+
+              {/* Collapsible Details Section */}
+              {hasDetailsData && (
+                <div className="border-t border-gray-200 pt-4">
+                  <button
+                    onClick={() => toggleSection('details')}
+                    className="w-full flex items-center justify-between text-left hover:bg-gray-50 -mx-2 px-2 py-2 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Info size={18} className="text-gray-500" />
+                      <span className="text-sm font-semibold text-gray-700">Details</span>
+                    </div>
+                    {expandedSections.details ? (
+                      <ChevronUp size={18} className="text-gray-500" />
+                    ) : (
+                      <ChevronDown size={18} className="text-gray-500" />
+                    )}
+                  </button>
+                  {expandedSections.details && (
+                    <div className="mt-3 space-y-3 pl-6">
+                      {item.subcategory && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500 mb-1">
+                            Subcategory
+                          </label>
+                          <p className="text-base text-gray-900">{item.subcategory}</p>
+                        </div>
+                      )}
+                      {item.brand && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500 mb-1">
+                            Brand
+                          </label>
+                          <p className="text-base text-gray-900">{item.brand}</p>
+                        </div>
+                      )}
+                      {(item.color || item.size) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          {item.color && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-500 mb-1">
+                                Color
+                              </label>
+                              <p className="text-base text-gray-900">{item.color}</p>
+                            </div>
+                          )}
+                          {item.size && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-500 mb-1">
+                                Size
+                              </label>
+                              <p className="text-base text-gray-900">{item.size}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {item.material && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500 mb-1">
+                            Material
+                          </label>
+                          <p className="text-base text-gray-900">{item.material}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Collapsible Purchase Info Section */}
+              {hasPurchaseData && (
+                <div className="border-t border-gray-200 pt-4">
+                  <button
+                    onClick={() => toggleSection('purchaseInfo')}
+                    className="w-full flex items-center justify-between text-left hover:bg-gray-50 -mx-2 px-2 py-2 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <DollarSign size={18} className="text-gray-500" />
+                      <span className="text-sm font-semibold text-gray-700">Purchase Info</span>
+                    </div>
+                    {expandedSections.purchaseInfo ? (
+                      <ChevronUp size={18} className="text-gray-500" />
+                    ) : (
+                      <ChevronDown size={18} className="text-gray-500" />
+                    )}
+                  </button>
+                  {expandedSections.purchaseInfo && (
+                    <div className="mt-3 space-y-3 pl-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        {item.price && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-1">
+                              Price
+                            </label>
+                            <p className="text-base text-gray-900">${item.price.toFixed(2)}</p>
+                          </div>
+                        )}
+                        {item.purchase_date && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-1">
+                              Purchase Date
+                            </label>
+                            <p className="text-base text-gray-900">
+                              {new Date(item.purchase_date).toLocaleDateString()}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Collapsible Additional Section */}
+              {hasAdditionalData && (
+                <div className="border-t border-gray-200 pt-4">
+                  <button
+                    onClick={() => toggleSection('additional')}
+                    className="w-full flex items-center justify-between text-left hover:bg-gray-50 -mx-2 px-2 py-2 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Tag size={18} className="text-gray-500" />
+                      <span className="text-sm font-semibold text-gray-700">Additional</span>
+                    </div>
+                    {expandedSections.additional ? (
+                      <ChevronUp size={18} className="text-gray-500" />
+                    ) : (
+                      <ChevronDown size={18} className="text-gray-500" />
+                    )}
+                  </button>
+                  {expandedSections.additional && (
+                    <div className="mt-3 space-y-3 pl-6">
+                      {item.tags && item.tags.length > 0 && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500 mb-2">
+                            Tags
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {item.tags.map((tag, index) => (
+                              <span
+                                key={index}
+                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {item.notes && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-500 mb-1">
+                            Notes
+                          </label>
+                          <p className="text-base text-gray-900 whitespace-pre-wrap">
+                            {item.notes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
