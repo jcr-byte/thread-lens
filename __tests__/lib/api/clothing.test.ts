@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createClothingItem, getClothingItemsByIds } from '@/app/lib/api/clothing';
+import { createClothingItem, getClothingItemsByIds, updateClothingItem, type UpdateClothingItemData } from '@/app/lib/api/clothing';
 import type { CreateClothingItemData } from '@/app/types/clothing';
 
 // Mock the Supabase client
 vi.mock('@/app/lib/api/supabase', () => ({
   supabase: {
     from: vi.fn(),
+    storage: {
+      from: vi.fn(),
+    },
   },
 }));
 
@@ -484,5 +487,783 @@ describe('getClothingItemsByIds', () => {
 
     expect(result.data).toEqual([mockItem]);
     expect(result.error).toBeNull();
+  });
+});
+
+describe('updateClothingItem', () => {
+  const mockUserId = 'user-123';
+  const mockItemId = 'item-123';
+  const mockOldImagePath = 'users/user-123/clothing/old-image.jpg';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should successfully update clothing item name', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      name: 'Updated Jacket Name',
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      name: 'Updated Jacket Name',
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(supabase.from).toHaveBeenCalledWith('clothing_items');
+    expect(mockUpdate).toHaveBeenCalledWith({ name: 'Updated Jacket Name' });
+  });
+
+  it('should successfully update multiple fields', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      name: 'Updated Name',
+      brand: 'New Brand',
+      color: 'red',
+      size: 'L',
+      material: 'cotton',
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      ...updateData,
+      category: 'tops',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(mockUpdate).toHaveBeenCalledWith({
+      name: 'Updated Name',
+      brand: 'New Brand',
+      color: 'red',
+      size: 'L',
+      material: 'cotton',
+    });
+  });
+
+  it('should upload new image and delete old image from storage', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+    const { uploadClothingImage } = await import('@/app/lib/api/uploadImage');
+
+    const mockFile = new File(['image'], 'new-jacket.jpg', { type: 'image/jpeg' });
+    const mockUploadResult = {
+      path: 'users/user-123/clothing/new-jacket.jpg',
+      publicUrl: 'https://example.com/new-jacket.jpg',
+      signedUrl: 'https://example.com/signed/new-jacket.jpg',
+    };
+
+    const updateData: UpdateClothingItemData = {
+      name: 'Updated Name',
+      image: mockFile,
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      name: 'Updated Name',
+      image_path: mockUploadResult.path,
+      image_url: mockUploadResult.publicUrl,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockRemove = vi.fn().mockResolvedValue({ error: null });
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(uploadClothingImage).mockResolvedValue(mockUploadResult);
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      remove: mockRemove,
+    } as any);
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData, mockOldImagePath);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(uploadClothingImage).toHaveBeenCalledWith(mockFile, mockUserId);
+    expect(supabase.storage.from).toHaveBeenCalledWith('clothing-images');
+    expect(mockRemove).toHaveBeenCalledWith([mockOldImagePath]);
+    expect(mockUpdate).toHaveBeenCalledWith({
+      name: 'Updated Name',
+      image_path: mockUploadResult.path,
+      image_url: mockUploadResult.publicUrl,
+    });
+  });
+
+  it('should upload new image when no old image exists', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+    const { uploadClothingImage } = await import('@/app/lib/api/uploadImage');
+
+    const mockFile = new File(['image'], 'new-jacket.jpg', { type: 'image/jpeg' });
+    const mockUploadResult = {
+      path: 'users/user-123/clothing/new-jacket.jpg',
+      publicUrl: 'https://example.com/new-jacket.jpg',
+      signedUrl: 'https://example.com/signed/new-jacket.jpg',
+    };
+
+    const updateData: UpdateClothingItemData = {
+      image: mockFile,
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      image_path: mockUploadResult.path,
+      image_url: mockUploadResult.publicUrl,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(uploadClothingImage).mockResolvedValue(mockUploadResult);
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(uploadClothingImage).toHaveBeenCalledWith(mockFile, mockUserId);
+    expect(supabase.storage.from).not.toHaveBeenCalled();
+  });
+
+  it('should remove image from storage and set DB fields to null', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      name: 'Updated Name',
+      removeImage: true,
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      name: 'Updated Name',
+      image_path: null,
+      image_url: null,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockRemove = vi.fn().mockResolvedValue({ error: null });
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      remove: mockRemove,
+    } as any);
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData, mockOldImagePath);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(supabase.storage.from).toHaveBeenCalledWith('clothing-images');
+    expect(mockRemove).toHaveBeenCalledWith([mockOldImagePath]);
+    expect(mockUpdate).toHaveBeenCalledWith({
+      name: 'Updated Name',
+      image_path: null,
+      image_url: null,
+    });
+  });
+
+  it('should handle image removal when no old image exists', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      removeImage: true,
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      image_path: null,
+      image_url: null,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(supabase.storage.from).not.toHaveBeenCalled();
+    expect(mockUpdate).toHaveBeenCalledWith({
+      image_path: null,
+      image_url: null,
+    });
+  });
+
+  it('should prioritize new image upload over removeImage flag', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+    const { uploadClothingImage } = await import('@/app/lib/api/uploadImage');
+
+    const mockFile = new File(['image'], 'new-jacket.jpg', { type: 'image/jpeg' });
+    const mockUploadResult = {
+      path: 'users/user-123/clothing/new-jacket.jpg',
+      publicUrl: 'https://example.com/new-jacket.jpg',
+      signedUrl: 'https://example.com/signed/new-jacket.jpg',
+    };
+
+    const updateData: UpdateClothingItemData = {
+      image: mockFile,
+      removeImage: true, // Should be ignored
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      image_path: mockUploadResult.path,
+      image_url: mockUploadResult.publicUrl,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockRemove = vi.fn().mockResolvedValue({ error: null });
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(uploadClothingImage).mockResolvedValue(mockUploadResult);
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      remove: mockRemove,
+    } as any);
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData, mockOldImagePath);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(uploadClothingImage).toHaveBeenCalled();
+    expect(mockRemove).toHaveBeenCalledWith([mockOldImagePath]);
+    expect(mockUpdate).toHaveBeenCalledWith({
+      image_path: mockUploadResult.path,
+      image_url: mockUploadResult.publicUrl,
+    });
+  });
+
+  it('should return error when image upload fails', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+    const { uploadClothingImage } = await import('@/app/lib/api/uploadImage');
+
+    const mockFile = new File(['image'], 'new-jacket.jpg', { type: 'image/jpeg' });
+    const mockUploadError = 'Failed to upload image';
+
+    const updateData: UpdateClothingItemData = {
+      image: mockFile,
+    };
+
+    const mockRemove = vi.fn().mockResolvedValue({ error: null });
+
+    vi.mocked(uploadClothingImage).mockResolvedValue({
+      path: '',
+      publicUrl: '',
+      signedUrl: '',
+      error: mockUploadError,
+    });
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      remove: mockRemove,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData, mockOldImagePath);
+
+    expect(result.data).toBeNull();
+    expect(result.error).toBe(mockUploadError);
+  });
+
+  it('should return error when database update fails', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      name: 'Updated Name',
+    };
+
+    const mockError = { message: 'Database update failed' };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: null,
+            error: mockError,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toBeNull();
+    expect(result.error).toBe(mockError.message);
+  });
+
+  it('should continue when storage deletion fails during image replacement', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+    const { uploadClothingImage } = await import('@/app/lib/api/uploadImage');
+
+    const mockFile = new File(['image'], 'new-jacket.jpg', { type: 'image/jpeg' });
+    const mockUploadResult = {
+      path: 'users/user-123/clothing/new-jacket.jpg',
+      publicUrl: 'https://example.com/new-jacket.jpg',
+      signedUrl: 'https://example.com/signed/new-jacket.jpg',
+    };
+
+    const updateData: UpdateClothingItemData = {
+      image: mockFile,
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      image_path: mockUploadResult.path,
+      image_url: mockUploadResult.publicUrl,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockRemove = vi.fn().mockResolvedValue({ 
+      error: { message: 'Storage deletion failed' } 
+    });
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    vi.mocked(uploadClothingImage).mockResolvedValue(mockUploadResult);
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      remove: mockRemove,
+    } as any);
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData, mockOldImagePath);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Failed to delete old image:',
+      expect.objectContaining({ message: 'Storage deletion failed' })
+    );
+
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should continue when storage deletion fails during image removal', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      removeImage: true,
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      image_path: null,
+      image_url: null,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockRemove = vi.fn().mockResolvedValue({ 
+      error: { message: 'Storage deletion failed' } 
+    });
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      remove: mockRemove,
+    } as any);
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData, mockOldImagePath);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Failed to delete image from storage:',
+      expect.objectContaining({ message: 'Storage deletion failed' })
+    );
+
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should handle clearing optional fields with null', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    // Note: To clear fields, we need to explicitly pass null, not undefined
+    // The code only includes fields that are explicitly set (not undefined)
+    const updateData: UpdateClothingItemData = {
+      subcategory: null,
+      brand: null,
+      color: null,
+      notes: null,
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      subcategory: null,
+      brand: null,
+      color: null,
+      notes: null,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(mockUpdate).toHaveBeenCalledWith({
+      subcategory: null,
+      brand: null,
+      color: null,
+      notes: null,
+    });
+  });
+
+  it('should handle empty tags array by setting to null', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      tags: [],
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      tags: null,
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(mockUpdate).toHaveBeenCalledWith({
+      tags: null,
+    });
+  });
+
+  it('should handle tags array with values', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      tags: ['casual', 'summer', 'vintage'],
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      tags: ['casual', 'summer', 'vintage'],
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(mockUpdate).toHaveBeenCalledWith({
+      tags: ['casual', 'summer', 'vintage'],
+    });
+  });
+
+  it('should handle exceptions and return error', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      name: 'Updated Name',
+    };
+
+    vi.mocked(supabase.from).mockImplementation(() => {
+      throw new Error('Unexpected error');
+    });
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toBeNull();
+    expect(result.error).toBe('Unexpected error');
+  });
+
+  it('should handle non-Error exceptions', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      name: 'Updated Name',
+    };
+
+    vi.mocked(supabase.from).mockImplementation(() => {
+      throw 'String error';
+    });
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData);
+
+    expect(result.data).toBeNull();
+    expect(result.error).toBe('Unknown error');
+  });
+
+  it('should not update image fields when neither new image nor removeImage is provided', async () => {
+    const { supabase } = await import('@/app/lib/api/supabase');
+
+    const updateData: UpdateClothingItemData = {
+      name: 'Updated Name',
+      brand: 'New Brand',
+    };
+
+    const mockUpdatedItem = {
+      id: mockItemId,
+      user_id: mockUserId,
+      name: 'Updated Name',
+      brand: 'New Brand',
+      image_path: mockOldImagePath,
+      image_url: 'https://example.com/old-image.jpg',
+      category: 'outerwear',
+      is_favorite: false,
+      wear_count: 0,
+      created_at: '2024-01-15T00:00:00Z',
+      updated_at: '2024-01-16T00:00:00Z',
+    };
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: mockUpdatedItem,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      update: mockUpdate,
+    } as any);
+
+    const result = await updateClothingItem(mockItemId, mockUserId, updateData, mockOldImagePath);
+
+    expect(result.data).toEqual(mockUpdatedItem);
+    expect(result.error).toBeNull();
+    expect(mockUpdate).toHaveBeenCalledWith({
+      name: 'Updated Name',
+      brand: 'New Brand',
+    });
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_path: expect.anything(),
+        image_url: expect.anything(),
+      })
+    );
   });
 });

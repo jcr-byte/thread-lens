@@ -105,15 +105,15 @@ export async function toggleFavoriteClothingItem(
 export interface UpdateClothingItemData {
     name?: string;
     category?: ClothingCategory;
-    subcategory?: string;
-    brand?: string;
-    color?: string;
-    size?: string;
-    material?: string;
-    purchase_date?: string;
-    price?: number;
-    tags?: string[];
-    notes?: string;
+    subcategory?: string | null;
+    brand?: string | null;
+    color?: string | null;
+    size?: string | null;
+    material?: string | null;
+    purchase_date?: string | null;
+    price?: number | null;
+    tags?: string[] | null;
+    notes?: string | null;
     image?: File;
     removeImage?: boolean;
 }
