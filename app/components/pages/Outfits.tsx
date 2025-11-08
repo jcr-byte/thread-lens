@@ -9,6 +9,7 @@ import { Outfit } from "../../types/outfit";
 import { ClothingItem } from "../../types/clothing";
 import AddOutfitModal from "../ui/AddOutfitModal";
 import AIOutfitModal from "../ui/AIOutfitModal";
+import OutfitModal from "../ui/OutfitModal";
 
 export default function Outfits() {
   const user = useRequireAuth();
@@ -112,6 +113,26 @@ export default function Outfits() {
         onClose={() => setIsAIModalOpen(false)}
         onSuccess={() => {
           loadOutfits(); // Refresh the list
+        }}
+      />
+
+      <OutfitModal
+        outfit={selectedOutfit}
+        isOpen={selectedOutfit !== null}
+        onClose={() => setSelectedOutfit(null)}
+        onDelete={(outfitId) => {
+          setOutfits(outfits.filter(o => o.id !== outfitId));
+          setSelectedOutfit(null);
+        }}
+        onToggleFavorite={(outfitId) => {
+          setOutfits(outfits.map(o => 
+            o.id === outfitId ? { ...o, is_favorite: !o.is_favorite } : o
+          ));
+        }}
+        onUpdate={(updatedOutfit) => {
+          setOutfits(outfits.map(o => 
+            o.id === updatedOutfit.id ? updatedOutfit : o
+          ));
         }}
       />
       
