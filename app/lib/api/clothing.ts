@@ -128,23 +128,8 @@ export async function updateClothingItem(
         let imagePath: string | undefined;
         let imageUrl: string | undefined;
 
-        // Handle image removal
-        if (data.removeImage && oldImagePath) {
-            // Delete image from storage
-            const { error: deleteError } = await supabase.storage
-                .from('clothing-images')
-                .remove([oldImagePath]);
-            
-            if (deleteError) {
-                console.warn('Failed to delete image from storage:', deleteError);
-            }
-            
-            // Set image fields to null
-            imagePath = undefined;
-            imageUrl = undefined;
-        }
-        // Upload new image if provided
-        else if (data.image) {
+        // Upload new image if provided (takes priority over removeImage)
+        if (data.image) {
             // Delete old image if it exists
             if (oldImagePath) {
                 const { error: deleteError } = await supabase.storage
@@ -163,6 +148,21 @@ export async function updateClothingItem(
             imagePath = uploadResult.path;
             imageUrl = uploadResult.publicUrl;
         }
+        // Handle image removal (only if no new image was provided)
+        else if (data.removeImage && oldImagePath) {
+            // Delete image from storage
+            const { error: deleteError } = await supabase.storage
+                .from('clothing-images')
+                .remove([oldImagePath]);
+            
+            if (deleteError) {
+                console.warn('Failed to delete image from storage:', deleteError);
+            }
+            
+            // Set image fields to null
+            imagePath = undefined;
+            imageUrl = undefined;
+        }
 
         // Prepare update data
         const updateData: any = {};
@@ -180,12 +180,14 @@ export async function updateClothingItem(
         if (data.notes !== undefined) updateData.notes = data.notes || null;
         
         // Update image fields if new image was uploaded or image was removed
-        if (data.removeImage) {
-            updateData.image_path = null;
-            updateData.image_url = null;
-        } else if (imagePath && imageUrl) {
+        if (imagePath && imageUrl) {
+            // New image was uploaded
             updateData.image_path = imagePath;
             updateData.image_url = imageUrl;
+        } else if (data.removeImage) {
+            // Image was explicitly removed (no new image uploaded)
+            updateData.image_path = null;
+            updateData.image_url = null;
         }
 
         // Update in database
