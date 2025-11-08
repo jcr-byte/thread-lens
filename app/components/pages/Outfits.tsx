@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search, Filter } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { getUserOutfits } from "../../lib/api/outfits";
@@ -28,6 +28,12 @@ export default function Outfits() {
   const [hoveredOutfitId, setHoveredOutfitId] = useState<string | null>(null);
   const [showNameForOutfit, setShowNameForOutfit] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [selectedOccasion, setSelectedOccasion] = useState<string>('all');
+  const [selectedSeason, setSelectedSeason] = useState<string>('all');
+  const [selectedFavorite, setSelectedFavorite] = useState<string>('all'); // 'all', 'favorite', 'not-favorite'
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const loadOutfits = async () => {
@@ -98,20 +104,106 @@ export default function Outfits() {
     };
   }, []);
 
-  // Filter outfits based on search query
-  const filteredOutfits = outfits.filter((outfit) => {
-    if (!searchQuery.trim()) {
-      return true;
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target as Node)) {
+        setIsFilterOpen(false);
+      }
+    };
+
+    if (isFilterOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
     }
 
-    const query = searchQuery.toLowerCase();
-    return (
-      outfit.name.toLowerCase().includes(query) ||
-      outfit.description?.toLowerCase().includes(query) ||
-      outfit.occasion?.toLowerCase().includes(query) ||
-      outfit.season?.toLowerCase().includes(query) ||
-      outfit.tags?.some(tag => tag.toLowerCase().includes(query))
-    );
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isFilterOpen]);
+
+  // Get unique values from outfits for filter options
+  const getUniqueOccasions = () => {
+    const occasions = outfits
+      .map(outfit => outfit.occasion)
+      .filter((occ): occ is string => !!occ);
+    return Array.from(new Set(occasions)).sort();
+  };
+
+  const getUniqueSeasons = () => {
+    const seasons = outfits
+      .map(outfit => outfit.season)
+      .filter((season): season is string => !!season);
+    return Array.from(new Set(seasons)).sort();
+  };
+
+  const getUniqueTags = () => {
+    const allTags = outfits
+      .flatMap(outfit => outfit.tags || [])
+      .filter((tag): tag is string => !!tag);
+    return Array.from(new Set(allTags)).sort();
+  };
+
+  const activeFiltersCount = [
+    selectedOccasion !== 'all',
+    selectedSeason !== 'all',
+    selectedFavorite !== 'all',
+    selectedTags.length > 0,
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSelectedOccasion('all');
+    setSelectedSeason('all');
+    setSelectedFavorite('all');
+    setSelectedTags([]);
+  };
+
+  // Filter outfits based on search query and filters
+  const filteredOutfits = outfits.filter((outfit) => {
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = (
+        outfit.name.toLowerCase().includes(query) ||
+        outfit.description?.toLowerCase().includes(query) ||
+        outfit.occasion?.toLowerCase().includes(query) ||
+        outfit.season?.toLowerCase().includes(query) ||
+        outfit.tags?.some(tag => tag.toLowerCase().includes(query))
+      );
+      if (!matchesSearch) return false;
+    }
+
+    // Occasion filter
+    if (selectedOccasion !== 'all') {
+      if (outfit.occasion?.toLowerCase() !== selectedOccasion.toLowerCase()) {
+        return false;
+      }
+    }
+
+    // Season filter
+    if (selectedSeason !== 'all') {
+      if (outfit.season?.toLowerCase() !== selectedSeason.toLowerCase()) {
+        return false;
+      }
+    }
+
+    // Favorite filter
+    if (selectedFavorite === 'favorite' && !outfit.is_favorite) {
+      return false;
+    }
+    if (selectedFavorite === 'not-favorite' && outfit.is_favorite) {
+      return false;
+    }
+
+    // Tags filter
+    if (selectedTags.length > 0) {
+      const outfitTags = outfit.tags || [];
+      const hasMatchingTag = selectedTags.some(tag =>
+        outfitTags.some(outfitTag => outfitTag.toLowerCase() === tag.toLowerCase())
+      );
+      if (!hasMatchingTag) return false;
+    }
+
+    return true;
   });
 
   return (
@@ -167,6 +259,120 @@ export default function Outfits() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all text-sm"
             />
           </div>
+
+          {/* Filter Button */}
+          <div className="relative" ref={filterDropdownRef}>
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-sm font-medium transition-colors ${
+                activeFiltersCount > 0
+                  ? 'bg-thread-lens-primary text-white border-thread-lens-primary hover:bg-thread-lens-secondary'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <Filter size={16} />
+              <span>Filter</span>
+              {activeFiltersCount > 0 && (
+                <span className="bg-white text-thread-lens-primary rounded-full px-1.5 py-0.5 text-xs font-semibold min-w-[18px] text-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+              <ChevronDown size={14} className={`transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Filter Dropdown */}
+            {isFilterOpen && (
+              <div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-lg border border-gray-200 py-3 min-w-[280px] z-20 max-h-[500px] overflow-y-auto">
+                <div className="px-4 pb-2 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+                  {activeFiltersCount > 0 && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-xs text-thread-lens-primary hover:text-thread-lens-secondary font-medium"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+
+                <div className="px-4 py-3 space-y-4">
+                  {/* Occasion Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">Occasion</label>
+                    <select
+                      value={selectedOccasion}
+                      onChange={(e) => setSelectedOccasion(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent"
+                    >
+                      <option value="all">All Occasions</option>
+                      {getUniqueOccasions().map((occasion) => (
+                        <option key={occasion} value={occasion}>
+                          {occasion}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Season Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">Season</label>
+                    <select
+                      value={selectedSeason}
+                      onChange={(e) => setSelectedSeason(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent"
+                    >
+                      <option value="all">All Seasons</option>
+                      {getUniqueSeasons().map((season) => (
+                        <option key={season} value={season}>
+                          {season}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Favorite Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">Favorite</label>
+                    <select
+                      value={selectedFavorite}
+                      onChange={(e) => setSelectedFavorite(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent"
+                    >
+                      <option value="all">All Outfits</option>
+                      <option value="favorite">Favorites Only</option>
+                      <option value="not-favorite">Not Favorites</option>
+                    </select>
+                  </div>
+
+                  {/* Tags Filter */}
+                  {getUniqueTags().length > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">Tags</label>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {getUniqueTags().map((tag) => (
+                          <label key={tag} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedTags.includes(tag)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTags([...selectedTags, tag]);
+                                } else {
+                                  setSelectedTags(selectedTags.filter(t => t !== tag));
+                                }
+                              }}
+                              className="rounded border-gray-300 text-thread-lens-primary focus:ring-thread-lens-primary"
+                            />
+                            <span className="text-sm text-gray-700">{tag}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Create Outfit Dropdown */}
           <div className="relative inline-block">
@@ -209,11 +415,26 @@ export default function Outfits() {
         
         {/* Scrollable Grid Container */}
         <div className="flex-1 overflow-y-auto">
-          {filteredOutfits.length === 0 && searchQuery ? (
+          {filteredOutfits.length === 0 && (searchQuery || activeFiltersCount > 0) ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <p className="text-gray-500 text-lg">No outfits found matching "{searchQuery}"</p>
-                <p className="text-gray-400 text-sm mt-2">Try searching with different keywords</p>
+                <p className="text-gray-500 text-lg">No outfits found</p>
+                <p className="text-gray-400 text-sm mt-2">
+                  {searchQuery 
+                    ? `No outfits match "${searchQuery}"`
+                    : 'Try adjusting your filters'}
+                </p>
+                {(searchQuery || activeFiltersCount > 0) && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      clearFilters();
+                    }}
+                    className="mt-4 text-sm text-thread-lens-primary hover:text-thread-lens-secondary font-medium"
+                  >
+                    Clear search and filters
+                  </button>
+                )}
               </div>
             </div>
           ) : (
