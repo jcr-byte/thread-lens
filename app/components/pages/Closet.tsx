@@ -68,6 +68,23 @@ export default function Closet() {
     }
   };
 
+  const handleUpdate = (updatedItem: ClothingItem) => {
+    // Update the item in the local state
+    setClothingItems(prevItems =>
+      prevItems.map(prevItem =>
+        prevItem.id === updatedItem.id ? updatedItem : prevItem
+      )
+    );
+    
+    // Update the selected item if it's currently displayed
+    if (selectedItem?.id === updatedItem.id) {
+      setSelectedItem(updatedItem);
+    }
+    
+    // Optionally refresh the list to ensure consistency
+    loadClothingItems();
+  };
+
   useEffect(() => {
     if (user) {
       loadClothingItems();
@@ -90,6 +107,7 @@ export default function Closet() {
         onClose={() => setSelectedItem(null)}
         onDelete={handleDelete}
         onToggleFavorite={handleToggleFavorite}
+        onUpdate={handleUpdate}
       />
       
       <div className="grid grid-cols-6 gap-4 my-10 mx-14">
