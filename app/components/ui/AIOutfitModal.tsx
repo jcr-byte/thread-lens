@@ -35,6 +35,11 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
     // Generated outfit
     const [generatedOutfit, setGeneratedOutfit] = useState<ClothingItem[]>([]);
     const [error, setError] = useState('');
+    
+    // Outfit name prompt
+    const [showNamePrompt, setShowNamePrompt] = useState(false);
+    const [outfitName, setOutfitName] = useState('');
+    const [isGeneratingName, setIsGeneratingName] = useState(false);
 
     // Load user's clothing items when modal opens and reset state
     useEffect(() => {
@@ -46,6 +51,8 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
             setDescription('');
             setGeneratedOutfit([]);
             setError('');
+            setOutfitName('');
+            setShowNamePrompt(false);
             resetFilters();
         }
     }, [isOpen, user]);
@@ -265,7 +272,73 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
         }
     };
 
-    const handleSaveOutfit = async () => {
+    const handleSaveOutfit = () => {
+        if (!user || generatedOutfit.length === 0) {
+            setError('No outfit to save');
+            return;
+        }
+
+        // Show name prompt first
+        setShowNamePrompt(true);
+        setOutfitName('');
+        setError('');
+    };
+
+    const handleGenerateName = async () => {
+        if (!user || generatedOutfit.length === 0) {
+            setError('No outfit to generate name for');
+            return;
+        }
+
+        setIsGeneratingName(true);
+        setError('');
+
+        try {
+            // Get session token for API call
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !session) {
+                throw new Error('Please log in to generate outfit names');
+            }
+
+            // Call the outfit name generation API
+            const response = await fetch('/api/outfit-name/generate', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                    clothingItemIds: generatedOutfit.map(item => item.id),
+                    occasion: occasion || undefined,
+                    description: description || undefined,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.details || errorData.error || 'Failed to generate outfit name');
+            }
+
+            const data = await response.json();
+            
+            if (data.name) {
+                setOutfitName(data.name);
+            } else {
+                throw new Error('No name generated');
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to generate outfit name');
+        } finally {
+            setIsGeneratingName(false);
+        }
+    };
+
+    const handleConfirmSaveOutfit = async () => {
+        if (!outfitName.trim()) {
+            setError('Please enter an outfit name');
+            return;
+        }
+
         if (!user || generatedOutfit.length === 0) {
             setError('No outfit to save');
             return;
@@ -275,10 +348,8 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
         setError('');
 
         try {
-            const outfitName = `AI Outfit ${new Date().toLocaleDateString()}`;
-            
             const { data, error: createError } = await createOutfit(user.id, {
-                name: outfitName,
+                name: outfitName.trim(),
                 description: description || undefined,
                 clothing_item_ids: generatedOutfit.map(item => item.id),
                 occasion: occasion || undefined,
@@ -293,6 +364,8 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
             setSelectedItemIds([]);
             setOccasion('');
             setDescription('');
+            setOutfitName('');
+            setShowNamePrompt(false);
             onSuccess?.();
             onClose();
         } catch (err) {
@@ -727,6 +800,96 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
                     </button>
                 </div>
                 </>
+                )}
+
+                {/* Outfit Name Prompt Modal */}
+                {showNamePrompt && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+                        <div 
+                            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                Name Your Outfit
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Give your outfit a name to save it to your collection.
+                            </p>
+                            
+                            <div className="flex space-x-2 mb-4">
+                                <input
+                                    type="text"
+                                    value={outfitName}
+                                    onChange={(e) => setOutfitName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && outfitName.trim()) {
+                                            handleConfirmSaveOutfit();
+                                        }
+                                    }}
+                                    placeholder="e.g., Casual Summer Outfit"
+                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                                    autoFocus
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleGenerateName}
+                                    disabled={isGeneratingName || generatedOutfit.length === 0}
+                                    className="px-4 py-2.5 bg-purple-100 hover:bg-purple-200 disabled:bg-gray-100 disabled:cursor-not-allowed text-purple-700 rounded-lg transition-colors text-sm font-medium flex items-center justify-center space-x-2 whitespace-nowrap"
+                                    title="Generate outfit name with AI"
+                                >
+                                    {isGeneratingName ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-700"></div>
+                                            <span className="hidden sm:inline">Generating...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles size={16} />
+                                            <span className="hidden sm:inline">AI</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            {error && (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                    <p className="text-sm text-red-600">{error}</p>
+                                </div>
+                            )}
+
+                            <div className="flex space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowNamePrompt(false);
+                                        setOutfitName('');
+                                        setError('');
+                                    }}
+                                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmSaveOutfit}
+                                    disabled={isLoading || !outfitName.trim()}
+                                    className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Check size={16} />
+                                            <span>Save</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
