@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { getUserOutfits } from "../../lib/api/outfits";
@@ -27,6 +27,7 @@ export default function Outfits() {
   const [outfitItemsMap, setOutfitItemsMap] = useState<Record<string, ClothingItem[]>>({});
   const [hoveredOutfitId, setHoveredOutfitId] = useState<string | null>(null);
   const [showNameForOutfit, setShowNameForOutfit] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const hoverTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const loadOutfits = async () => {
@@ -97,6 +98,22 @@ export default function Outfits() {
     };
   }, []);
 
+  // Filter outfits based on search query
+  const filteredOutfits = outfits.filter((outfit) => {
+    if (!searchQuery.trim()) {
+      return true;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return (
+      outfit.name.toLowerCase().includes(query) ||
+      outfit.description?.toLowerCase().includes(query) ||
+      outfit.occasion?.toLowerCase().includes(query) ||
+      outfit.season?.toLowerCase().includes(query) ||
+      outfit.tags?.some(tag => tag.toLowerCase().includes(query))
+    );
+  });
+
   return (
     <>
       <AddOutfitModal 
@@ -137,8 +154,21 @@ export default function Outfits() {
       />
       
       <div className="h-screen flex flex-col overflow-hidden">
-        {/* Create Outfit Dropdown */}
-        <div className="ml-6 mt-3 mb-2 relative flex-shrink-0">
+        {/* Search Bar and Create Outfit Dropdown */}
+        <div className="ml-6 mt-3 mb-2 relative flex-shrink-0 flex items-center gap-3">
+          {/* Search Bar */}
+          <div className="flex-1 max-w-md relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search outfits by name, description, tags, occasion, or season..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-thread-lens-primary focus:border-transparent transition-all text-sm"
+            />
+          </div>
+          
+          {/* Create Outfit Dropdown */}
           <div className="relative inline-block">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -179,9 +209,17 @@ export default function Outfits() {
         
         {/* Scrollable Grid Container */}
         <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-6 gap-4 my-6 ml-6 mr-6 pb-6">
-            {/* Outfit items */}
-            {outfits.map((outfit) => {
+          {filteredOutfits.length === 0 && searchQuery ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <p className="text-gray-500 text-lg">No outfits found matching "{searchQuery}"</p>
+                <p className="text-gray-400 text-sm mt-2">Try searching with different keywords</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-6 gap-4 my-6 ml-6 mr-6 pb-6">
+              {/* Outfit items */}
+              {filteredOutfits.map((outfit) => {
               const previewItems = outfitItemsMap[outfit.id] || [];
               const hasItems = previewItems.length > 0;
               
@@ -244,8 +282,9 @@ export default function Outfits() {
                   </div>
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+          )}
         </div>
       </div>
     </>
