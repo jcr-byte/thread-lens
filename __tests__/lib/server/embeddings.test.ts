@@ -29,6 +29,19 @@ vi.mock('openai', () => {
   };
 });
 
+// Mock node-vibrant - must be before importing embeddings module
+vi.mock('node-vibrant/node', () => {
+  const mockGetPalette = vi.fn();
+  // Store reference globally so we can control it
+  (global as any).__mockVibrantGetPalette = mockGetPalette;
+  return {
+    Vibrant: class Vibrant {
+      constructor(public imageUrl: string) {}
+      getPalette = mockGetPalette;
+    },
+  };
+});
+
 // Import after mocks are set up
 import {
   generateImageEmbedding,
@@ -36,11 +49,13 @@ import {
   createItemSearchText,
   generateItemEmbeddings,
 } from '@/app/lib/server/embeddings';
+import { getColorPalette } from '@/app/lib/server/util/embeddings';
 
 describe('embeddings', () => {
   // Get references to the mocked functions
   const getMockReplicateRun = () => (global as any).__mockReplicateRun;
   const getMockOpenAICreate = () => (global as any).__mockOpenAICreate;
+  const getMockVibrantGetPalette = () => (global as any).__mockVibrantGetPalette;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -63,32 +78,59 @@ describe('embeddings', () => {
           input: {
             inputs: imageUrl,
           }
-        }
-      );
+        })
+    })
+
+    it('should successfully generate color palette', async () => {
+      const mockPalette = {
+        Vibrant: { rgb: [255, 0, 0], hsl: [0, 100, 50] },
+        Muted: { rgb: [128, 128, 128], hsl: [0, 0, 50] },
+      };
+
+      getMockVibrantGetPalette().mockResolvedValue(mockPalette);
+
+      const imageUrl = 'https://example.com/image.jpg';
+      const result = await getColorPalette(imageUrl);
+
+      expect(result).toEqual(mockPalette);
+      expect(getMockVibrantGetPalette()).toHaveBeenCalled();
     });
+
 
     it('should throw error when Replicate response is invalid (empty array)', async () => {
       getMockReplicateRun().mockResolvedValue([]);
 
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
       await expect(generateImageEmbedding('https://example.com/image.jpg')).rejects.toThrow(
         'Invalid CLIP response format'
       );
+
+      consoleErrorSpy.mockRestore();
     });
 
     it('should throw error when Replicate response has no embedding', async () => {
       getMockReplicateRun().mockResolvedValue([{}]);
 
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
       await expect(generateImageEmbedding('https://example.com/image.jpg')).rejects.toThrow(
         'Invalid CLIP response format'
       );
+
+      consoleErrorSpy.mockRestore();
     });
 
     it('should throw error when Replicate response is not an array', async () => {
       getMockReplicateRun().mockResolvedValue(null);
 
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
       await expect(generateImageEmbedding('https://example.com/image.jpg')).rejects.toThrow(
         'Invalid CLIP response format'
       );
+
+      consoleErrorSpy.mockRestore();
     });
 
     it('should throw error when Replicate API call fails', async () => {
