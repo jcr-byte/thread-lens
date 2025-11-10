@@ -1,6 +1,8 @@
 import 'server-only';
 import OpenAI from 'openai';
 import Replicate from 'replicate';
+import { getColorPalette } from './util/embeddings';
+import type { Palette } from '@vibrant/color';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -92,6 +94,7 @@ export async function generateItemEmbeddings(item: {
   brand?: string | null;
   material?: string | null;
   notes?: string | null;
+  palette_hsl?: Palette | null;
 }): Promise<{
   v_image?: number[];
   v_text?: number[];
@@ -99,15 +102,20 @@ export async function generateItemEmbeddings(item: {
   const embeddings: {
     v_image?: number[];
     v_text?: number[];
+    palette_hsl?: Palette | null;
   } = {};
 
-  // Generate image embedding if image exists
   if (item.image_url) {
     try {
       embeddings.v_image = await generateImageEmbedding(item.image_url);
     } catch (error) {
       console.error('Failed to generate image embedding:', error);
-      // Continue without image embedding
+    }
+
+    try {
+      embeddings.palette_hsl = await getColorPalette(item.image_url);
+    } catch (error) {
+      console.error('Failed to generate color palette:', error);
     }
   }
 
