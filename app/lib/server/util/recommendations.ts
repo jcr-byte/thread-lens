@@ -1,3 +1,13 @@
+import type { Palette } from '@vibrant/color';
+
+type MatchReport = {
+  hueDeg: number;
+  satDiff: number;
+  lightDiff: number;
+  neutralPair: boolean;
+  warmCoolClash: boolean;
+  verdict: 'match' | 'neutral' | 'mismatch';
+}
 
 export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
   r /= 255;
@@ -34,7 +44,56 @@ export function rgbToHsl(r: number, g: number, b: number): { h: number; s: numbe
   };
 }
 
-export async function compareHues(hue1: number, hue2: number): Promise<number> {
-  // TODO: Implement hue comparison logic
-  return 0;
+export function isNeutralPair(s: number, threshold = 12): boolean {
+  return s < threshold;
+}
+
+function isWarmColor(hue: number): boolean {
+  return (hue >= 0 && hue <= 60) || (hue >= 300 && hue <= 360);
+}
+
+export function hueDistanceDegrees(hue1: number, hue2: number): number {
+  const distance = Math.abs(hue1 - hue2) % 360;
+  return distance > 180 ? 360 - distance : distance;
+}
+
+export function compareColors(a: Palette, b: Palette): MatchReport {
+  if (!a.Vibrant || !b.Vibrant) {
+    throw new Error('No vibrant color found');
+  }
+
+  const hsl1 = rgbToHsl(a.Vibrant.rgb[0], a.Vibrant.rgb[1], a.Vibrant.rgb[2]);
+  const hsl2 = rgbToHsl(b.Vibrant.rgb[0], b.Vibrant.rgb[1], b.Vibrant.rgb[2]);
+
+  const hueDeg = hueDistanceDegrees(hsl1.h, hsl2.h);
+
+  const satDiff = Math.abs(hsl1.s - hsl2.s);
+  const lightDiff = Math.abs(hsl1.l - hsl2.l);
+
+  const neutralPair = isNeutralPair(hsl1.s) || isNeutralPair(hsl2.s);
+
+  const warmCoolClash = isWarmColor(hsl1.h) !== isWarmColor(hsl2.h);
+
+  let verdict: 'match' | 'neutral' | 'mismatch';
+  
+  if (neutralPair) {
+    verdict = 'neutral';
+  } else if (warmCoolClash && hueDeg > 60) {
+    verdict = 'mismatch';
+  } else if (hueDeg <= 30) {
+    verdict = 'match';
+  } else if (hueDeg <= 90) {
+    verdict = 'match';
+  } else {
+    verdict = 'mismatch';
+  }
+
+  return {
+    hueDeg,
+    satDiff,
+    lightDiff,
+    neutralPair,
+    warmCoolClash,
+    verdict,
+  };
 }
