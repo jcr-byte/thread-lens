@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { rgbToHsl } from '@/app/lib/server/util/recommendations';
+import { rgbToHsl, isNeutralPair, hueDistanceDegrees, compareColors } from '@/app/lib/server/util/recommendations';
+import type { Palette } from '@vibrant/color';
 
 describe('rgbToHsl', () => {
   // Helper function to check HSL values with tolerance for floating point precision
@@ -220,6 +221,198 @@ describe('rgbToHsl', () => {
         expect(result.l).toBeLessThanOrEqual(100);
       });
     });
+  });
+});
+
+describe('isNeutralPair', () => {
+  it('should return true for low saturation values', () => {
+    expect(isNeutralPair(5)).toBe(true);
+    expect(isNeutralPair(10)).toBe(true);
+    expect(isNeutralPair(11.9)).toBe(true);
+  });
+
+  it('should return false for high saturation values', () => {
+    expect(isNeutralPair(12)).toBe(false);
+    expect(isNeutralPair(50)).toBe(false);
+    expect(isNeutralPair(100)).toBe(false);
+  });
+
+  it('should use custom threshold when provided', () => {
+    expect(isNeutralPair(15, 20)).toBe(true);
+    expect(isNeutralPair(25, 20)).toBe(false);
+  });
+
+  it('should handle edge cases', () => {
+    expect(isNeutralPair(0)).toBe(true);
+    expect(isNeutralPair(12)).toBe(false);
+    expect(isNeutralPair(12.1)).toBe(false);
+  });
+});
+
+describe('hueDistanceDegrees', () => {
+  it('should calculate distance for close hues', () => {
+    expect(hueDistanceDegrees(0, 10)).toBe(10);
+    expect(hueDistanceDegrees(50, 60)).toBe(10);
+    expect(hueDistanceDegrees(100, 120)).toBe(20);
+  });
+
+  it('should calculate shortest path around color wheel', () => {
+    expect(hueDistanceDegrees(10, 350)).toBe(20);
+    expect(hueDistanceDegrees(350, 10)).toBe(20);
+  });
+
+  it('should handle opposite colors correctly', () => {
+    expect(hueDistanceDegrees(0, 180)).toBe(180);
+    expect(hueDistanceDegrees(90, 270)).toBe(180);
+  });
+
+  it('should return 0 for identical hues', () => {
+    expect(hueDistanceDegrees(0, 0)).toBe(0);
+    expect(hueDistanceDegrees(180, 180)).toBe(0);
+    expect(hueDistanceDegrees(359, 359)).toBe(0);
+  });
+
+  it('should handle large differences correctly', () => {
+    expect(hueDistanceDegrees(0, 200)).toBe(160);
+    expect(hueDistanceDegrees(200, 0)).toBe(160);
+  });
+
+  it('should handle values near 360 boundary', () => {
+    expect(hueDistanceDegrees(350, 10)).toBe(20);
+    expect(hueDistanceDegrees(10, 350)).toBe(20);
+    expect(hueDistanceDegrees(355, 5)).toBe(10);
+  });
+});
+
+describe('compareColors', () => {
+  const createMockPalette = (rgb: [number, number, number]): Palette => {
+    return {
+      Vibrant: {
+        rgb,
+        hsl: rgbToHsl(rgb[0], rgb[1], rgb[2]),
+        hex: `#${rgb.map(v => v.toString(16).padStart(2, '0')).join('')}`,
+        population: 1000,
+        r: rgb[0],
+        g: rgb[1],
+        b: rgb[2],
+        titleTextColor: '#000000',
+        bodyTextColor: '#000000',
+        toJSON: () => ({ rgb, population: 1000 }),
+      } as any,
+      Muted: null,
+      DarkVibrant: null,
+      DarkMuted: null,
+      LightVibrant: null,
+      LightMuted: null,
+    };
+  };
+
+  it('should throw error when Vibrant is missing', () => {
+    const palette1: Palette = {
+      Vibrant: null,
+      Muted: null,
+      DarkVibrant: null,
+      DarkMuted: null,
+      LightVibrant: null,
+      LightMuted: null,
+    };
+    const palette2 = createMockPalette([255, 0, 0]);
+
+    expect(() => compareColors(palette1, palette2)).toThrow('No vibrant color found');
+    expect(() => compareColors(palette2, palette1)).toThrow('No vibrant color found');
+  });
+
+  it('should return neutral verdict for low saturation colors', () => {
+    const gray1 = createMockPalette([128, 128, 128]);
+    const gray2 = createMockPalette([100, 100, 100]);
+
+    const result = compareColors(gray1, gray2);
+
+    expect(result.neutralPair).toBe(true);
+    expect(result.verdict).toBe('neutral');
+  });
+
+  it('should return match for similar hues', () => {
+    const red1 = createMockPalette([255, 0, 0]);
+    const red2 = createMockPalette([255, 50, 50]);
+
+    const result = compareColors(red1, red2);
+
+    expect(result.verdict).toBe('match');
+    expect(result.hueDeg).toBeLessThanOrEqual(30);
+  });
+
+  it('should return match for complementary colors within 90 degrees', () => {
+    const red = createMockPalette([255, 0, 0]);
+    const orange = createMockPalette([255, 165, 0]);
+
+    const result = compareColors(red, orange);
+
+    expect(result.verdict).toBe('match');
+    expect(result.hueDeg).toBeLessThanOrEqual(90);
+  });
+
+  it('should return mismatch for warm/cool clash with large hue difference', () => {
+    const red = createMockPalette([255, 0, 0]);
+    const blue = createMockPalette([0, 0, 255]);
+
+    const result = compareColors(red, blue);
+
+    expect(result.warmCoolClash).toBe(true);
+    expect(result.hueDeg).toBeGreaterThan(60);
+    expect(result.verdict).toBe('mismatch');
+  });
+
+  it('should calculate correct hue distance', () => {
+    const red = createMockPalette([255, 0, 0]);
+    const green = createMockPalette([0, 255, 0]);
+
+    const result = compareColors(red, green);
+
+    expect(result.hueDeg).toBe(120);
+  });
+
+  it('should calculate saturation and lightness differences', () => {
+    const color1 = createMockPalette([255, 0, 0]);
+    const color2 = createMockPalette([128, 128, 128]);
+
+    const result = compareColors(color1, color2);
+
+    expect(result.satDiff).toBeGreaterThanOrEqual(0);
+    expect(result.lightDiff).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle warm colors correctly', () => {
+    const red = createMockPalette([255, 0, 0]);
+    const yellow = createMockPalette([255, 255, 0]);
+
+    const result = compareColors(red, yellow);
+
+    expect(result.warmCoolClash).toBe(false);
+  });
+
+  it('should handle cool colors correctly', () => {
+    const blue = createMockPalette([0, 0, 255]);
+    const green = createMockPalette([0, 255, 0]);
+
+    const result = compareColors(blue, green);
+
+    expect(result.warmCoolClash).toBe(false);
+  });
+
+  it('should return all required fields in MatchReport', () => {
+    const palette1 = createMockPalette([255, 0, 0]);
+    const palette2 = createMockPalette([0, 255, 0]);
+
+    const result = compareColors(palette1, palette2);
+
+    expect(result).toHaveProperty('hueDeg');
+    expect(result).toHaveProperty('satDiff');
+    expect(result).toHaveProperty('lightDiff');
+    expect(result).toHaveProperty('neutralPair');
+    expect(result).toHaveProperty('warmCoolClash');
+    expect(result).toHaveProperty('verdict');
+    expect(['match', 'neutral', 'mismatch']).toContain(result.verdict);
   });
 });
 
