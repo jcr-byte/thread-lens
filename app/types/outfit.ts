@@ -6,6 +6,7 @@ export interface Outfit {
     image_url?: string;
     image_path?: string;
     clothing_item_ids: string[];
+    outfit_signature?: string; // Canonical signature for duplicate detection
     tags?: string[];
     occasion?: string;
     season?: string;

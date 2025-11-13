@@ -12,3 +12,6 @@ export { getUserItems } from './queries';
 // Mutation operations (write)
 export { toggleFavorite, deleteItem } from './mutations';
 
+// Outfit signature utilities
+export { generateOutfitSignature, isValidOutfitSignature } from './outfitSignature';
+
