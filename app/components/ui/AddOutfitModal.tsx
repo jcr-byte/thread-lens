@@ -23,7 +23,6 @@ export default function AddOutfitModal({ isOpen, onClose, onSuccess, initialMode
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
     const [isAIMode, setIsAIMode] = useState(initialMode === 'ai');
     const [aiGeneratedItems, setAiGeneratedItems] = useState<ClothingItem[]>([]);
-    const [excludeIds, setExcludeIds] = useState<string[]>([]);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     const [baseItem, setBaseItem] = useState<ClothingItem | null>(null);
     const [showBaseItemSelector, setShowBaseItemSelector] = useState(false);

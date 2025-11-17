@@ -34,6 +34,104 @@ describe('createOutfit', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Helper function to set up all mocks needed for createOutfit tests
+   * 
+   * @param options Configuration for the test scenario
+   * @returns Object containing all the mocks for assertions
+   */
+  async function setupCreateOutfitMocks(options: {
+    // Duplicate check options
+    duplicateExists?: boolean;
+    duplicateCheckError?: { message: string };
+    
+    // Image upload options
+    imageUploadResult?: {
+      path: string;
+      publicUrl: string;
+      signedUrl?: string;
+      error?: string;
+    };
+    imageUploadError?: string;
+    
+    // Database insert options
+    insertResult?: any; // The outfit object to return
+    insertError?: { message: string };
+    
+    // UUID for image uploads
+    mockUUID?: string;
+  } = {}) {
+    const { supabase } = await import('@/app/lib/api/supabase');
+    const { uploadOutfitImage } = await import('@/app/lib/api/uploadImage');
+
+    // Setup duplicate check mock
+    const mockMaybeSingle = vi.fn().mockResolvedValue({
+      data: options.duplicateExists ? { id: 'existing-outfit-id' } : null,
+      error: options.duplicateCheckError || null,
+    });
+
+    const mockEq2 = vi.fn().mockReturnValue({
+      maybeSingle: mockMaybeSingle,
+    });
+
+    const mockEq1 = vi.fn().mockReturnValue({
+      eq: mockEq2,
+    });
+
+    const duplicateCheckMock = {
+      select: vi.fn().mockReturnValue({
+        eq: mockEq1,
+      }),
+      maybeSingle: mockMaybeSingle,
+    };
+
+    // Setup insert mock
+    const mockInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: options.insertResult || null,
+          error: options.insertError || null,
+        }),
+      }),
+    });
+
+    // Setup supabase.from mock
+    vi.mocked(supabase.from).mockReturnValue({
+      select: duplicateCheckMock.select,
+      insert: mockInsert,
+    } as any);
+
+    // Setup image upload mock if provided
+    if (options.imageUploadResult || options.imageUploadError) {
+      const uploadResult = options.imageUploadError
+        ? {
+            path: '',
+            publicUrl: '',
+            signedUrl: '',
+            error: options.imageUploadError,
+          }
+        : {
+            path: options.imageUploadResult?.path || '',
+            publicUrl: options.imageUploadResult?.publicUrl || '',
+            signedUrl: options.imageUploadResult?.signedUrl || '',
+            error: undefined,
+          };
+      
+      vi.mocked(uploadOutfitImage).mockResolvedValue(uploadResult);
+    }
+
+    // Setup UUID mock if provided
+    if (options.mockUUID) {
+      vi.mocked(crypto.randomUUID).mockReturnValue(options.mockUUID);
+    }
+
+    return {
+      duplicateCheckMock,
+      mockInsert,
+      mockMaybeSingle,
+    };
+  }
+
   it('should successfully create an outfit with an image', async () => {
     const { supabase } = await import('@/app/lib/api/supabase');
     const { uploadOutfitImage } = await import('@/app/lib/api/uploadImage');
@@ -55,23 +153,14 @@ describe('createOutfit', () => {
       wear_count: 0,
       created_at: '2024-01-15T00:00:00Z',
       updated_at: '2024-01-15T00:00:00Z',
+      outfit_signature: 'item-1,item-2,item-3',
     };
 
-    vi.mocked(crypto.randomUUID).mockReturnValue(mockOutfitId);
-    vi.mocked(uploadOutfitImage).mockResolvedValue(mockUploadResult);
-
-    const mockInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: mockOutfit,
-          error: null,
-        }),
-      }),
+    const { mockInsert } = await setupCreateOutfitMocks({
+      insertResult: mockOutfit,
+      imageUploadResult: mockUploadResult,
+      mockUUID: mockOutfitId,
     });
-
-    vi.mocked(supabase.from).mockReturnValue({
-      insert: mockInsert,
-    } as any);
 
     const result = await createOutfit(mockUserId, {
       ...mockOutfitData,
@@ -96,12 +185,11 @@ describe('createOutfit', () => {
       image_url: mockUploadResult.publicUrl,
       is_favorite: false,
       wear_count: 0,
+      outfit_signature: 'item-1,item-2,item-3',
     });
   });
 
   it('should successfully create an outfit without an image', async () => {
-    const { supabase } = await import('@/app/lib/api/supabase');
-    const { uploadOutfitImage } = await import('@/app/lib/api/uploadImage');
 
     const mockOutfit = {
       id: 'outfit-456',
@@ -113,26 +201,19 @@ describe('createOutfit', () => {
       wear_count: 0,
       created_at: '2024-01-15T00:00:00Z',
       updated_at: '2024-01-15T00:00:00Z',
+      outfit_signature: 'item-1,item-2,item-3',
     };
 
-    const mockInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: mockOutfit,
-          error: null,
-        }),
-      }),
+    const { mockInsert } = await setupCreateOutfitMocks({
+      insertResult: mockOutfit,
     });
-
-    vi.mocked(supabase.from).mockReturnValue({
-      insert: mockInsert,
-    } as any);
 
     const result = await createOutfit(mockUserId, mockOutfitData);
 
     expect(result.data).toEqual(mockOutfit);
     expect(result.error).toBeNull();
 
+    const { uploadOutfitImage } = await import('@/app/lib/api/uploadImage');
     expect(crypto.randomUUID).not.toHaveBeenCalled();
     expect(uploadOutfitImage).not.toHaveBeenCalled();
     expect(mockInsert).toHaveBeenCalledWith(
@@ -147,18 +228,13 @@ describe('createOutfit', () => {
   });
 
   it('should return error when image upload fails', async () => {
-    const { uploadOutfitImage } = await import('@/app/lib/api/uploadImage');
-
     const mockOutfitId = 'outfit-uuid-789';
     const mockFile = new File(['image'], 'outfit.jpg', { type: 'image/jpeg' });
     const mockUploadError = 'Failed to upload outfit image';
 
-    vi.mocked(crypto.randomUUID).mockReturnValue(mockOutfitId);
-    vi.mocked(uploadOutfitImage).mockResolvedValue({
-      path: '',
-      publicUrl: '',
-      signedUrl: '',
-      error: mockUploadError,
+    await setupCreateOutfitMocks({
+      imageUploadError: mockUploadError,
+      mockUUID: mockOutfitId,
     });
 
     const result = await createOutfit(mockUserId, {
@@ -172,22 +248,11 @@ describe('createOutfit', () => {
   });
 
   it('should return error when database insertion fails', async () => {
-    const { supabase } = await import('@/app/lib/api/supabase');
-
     const mockError = { message: 'Database error' };
 
-    const mockInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: null,
-          error: mockError,
-        }),
-      }),
+    await setupCreateOutfitMocks({
+      insertError: mockError,
     });
-
-    vi.mocked(supabase.from).mockReturnValue({
-      insert: mockInsert,
-    } as any);
 
     const result = await createOutfit(mockUserId, mockOutfitData);
 
@@ -222,8 +287,6 @@ describe('createOutfit', () => {
   });
 
   it('should create outfit with minimal required fields', async () => {
-    const { supabase } = await import('@/app/lib/api/supabase');
-
     const minimalData: CreateOutfitData = {
       name: 'Simple Outfit',
       clothing_item_ids: ['item-1', 'item-2'],
@@ -242,18 +305,9 @@ describe('createOutfit', () => {
       updated_at: '2024-01-15T00:00:00Z',
     };
 
-    const mockInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: mockOutfit,
-          error: null,
-        }),
-      }),
+    const { mockInsert } = await setupCreateOutfitMocks({
+      insertResult: mockOutfit,
     });
-
-    vi.mocked(supabase.from).mockReturnValue({
-      insert: mockInsert,
-    } as any);
 
     const result = await createOutfit(mockUserId, minimalData);
 
@@ -272,12 +326,11 @@ describe('createOutfit', () => {
       image_url: '',
       is_favorite: false,
       wear_count: 0,
+      outfit_signature: 'item-1,item-2',
     });
   });
 
   it('should preserve all optional fields when provided', async () => {
-    const { supabase } = await import('@/app/lib/api/supabase');
-
     const fullData: CreateOutfitData = {
       name: 'Winter Formal Outfit',
       description: 'Elegant outfit for winter weddings',
@@ -287,18 +340,9 @@ describe('createOutfit', () => {
       season: 'winter',
     };
 
-    const mockInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: { id: 'outfit-full', ...fullData },
-          error: null,
-        }),
-      }),
+    const { mockInsert } = await setupCreateOutfitMocks({
+      insertResult: { id: 'outfit-full', ...fullData },
     });
-
-    vi.mocked(supabase.from).mockReturnValue({
-      insert: mockInsert,
-    } as any);
 
     await createOutfit(mockUserId, fullData);
 
@@ -316,7 +360,6 @@ describe('createOutfit', () => {
   });
 
   it('should generate unique UUID for each outfit with image', async () => {
-    const { supabase } = await import('@/app/lib/api/supabase');
     const { uploadOutfitImage } = await import('@/app/lib/api/uploadImage');
 
     const mockFile = new File(['image'], 'outfit.jpg', { type: 'image/jpeg' });
@@ -327,24 +370,14 @@ describe('createOutfit', () => {
       .mockReturnValueOnce(firstUUID)
       .mockReturnValueOnce(secondUUID);
 
-    vi.mocked(uploadOutfitImage).mockResolvedValue({
-      path: 'path/to/image.jpg',
-      publicUrl: 'https://example.com/image.jpg',
-      signedUrl: 'https://example.com/signed/image.jpg',
+    await setupCreateOutfitMocks({
+      insertResult: { id: 'outfit-1' },
+      imageUploadResult: {
+        path: 'path/to/image.jpg',
+        publicUrl: 'https://example.com/image.jpg',
+        signedUrl: 'https://example.com/signed/image.jpg',
+      },
     });
-
-    const mockInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: { id: 'outfit-1' },
-          error: null,
-        }),
-      }),
-    });
-
-    vi.mocked(supabase.from).mockReturnValue({
-      insert: mockInsert,
-    } as any);
 
     // First creation
     await createOutfit(mockUserId, { ...mockOutfitData, image: mockFile });

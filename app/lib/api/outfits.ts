@@ -17,10 +17,14 @@ export async function createOutfit(
             .select('id')
             .eq('user_id', userId)
             .eq('outfit_signature', outfitSignature)
-            .single();
+            .maybeSingle();
 
         if (existingOutfitError) {
             return { data: null, error: existingOutfitError.message };
+        }
+
+        if (existingOutfit) {
+            return { data: null, error: "An outfit with the same items already exists" };
         }
 
         let imagePath = '';
