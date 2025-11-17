@@ -44,3 +44,11 @@ export function isValidOutfitSignature(signature: string): boolean {
   return signaturePattern.test(signature);
 }
 
+
+export function parseOutfitSignature(signature: string): string[] {
+  if (!signature || signature.trim() === '') {
+    return [];
+  }
+
+  return signature.split(',');
+}

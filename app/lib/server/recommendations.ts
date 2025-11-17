@@ -1,6 +1,8 @@
 import 'server-only';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ClothingItem, ClothingCategory } from '../../types/clothing';
+import { generateOutfitSignature, parseOutfitSignature } from '../api/utils/outfitSignature';
+import { Outfit } from '@/app/types/outfit';
 
 /**
  * Calculate cosine similarity between two vectors
@@ -149,18 +151,57 @@ export async function generateCompleteOutfit(
   baseItemId: string,
   excludeIds: string[] = []
 ): Promise<ClothingItem[]> {
-  const result = await buildOutfitFromBase(supabase, userId, baseItemId, excludeIds);
+
+
+  // Get all users outfits
+  const { data: userOutfits, error: userOutfitsError } = await supabase
+    .from('outfits')
+    .select('outfit_signature')
+    .eq('user_id', userId)
+
+  if (userOutfitsError || !userOutfits) {
+    console.error('Failed to fetch user outfits', userOutfitsError);
+    throw new Error('Failed to fetch user outfits');
+  }
   
-  // Start with base item
-  const outfit: ClothingItem[] = [result.baseItem];
-  
-  // Take the first (best) item from each category
-  result.recommendations.forEach((rec) => {
-    if (rec.items.length > 0) {
-      outfit.push(rec.items[0]);
-    }
-  });
-  
+  let uniqueOutfit = false;
+  let outfit: ClothingItem[] = [];
+  let allExcludedIds = [...excludeIds];
+
+  while (!uniqueOutfit) {
+
+    allExcludedIds = [...excludeIds];
+    let result = await buildOutfitFromBase(supabase, userId, baseItemId, allExcludedIds);
+
+    // Start with base item
+    outfit = [result.baseItem];
+    
+    // Take the first (best) item from each category
+    result.recommendations.forEach((rec) => {
+      if (rec.items.length > 0) {
+        outfit.push(rec.items[0]);
+      }
+    });
+
+    const outfitSignature = generateOutfitSignature(outfit.map(outfit => outfit.id));
+
+    uniqueOutfit = true;
+
+    for (const outfit of userOutfits) {
+      if (outfit.outfit_signature === outfitSignature) {
+        const outfitItemIds = parseOutfitSignature(outfit.outfit_signature);
+        outfitItemIds.forEach(itemId => {
+          if (!allExcludedIds.includes(itemId)) {
+            allExcludedIds.push(itemId);
+          }
+        });
+
+        uniqueOutfit = false;
+        break;
+      }
+    };
+  };  
+
   return outfit;
 }
 

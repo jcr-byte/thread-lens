@@ -24,6 +24,7 @@ export interface CreateOutfitData {
     occasion?: string;
     season?: string;
     image?: File;
+    outfit_signature?: string;
 }
 
 

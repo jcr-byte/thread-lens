@@ -36,6 +36,7 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
     
     // Generated outfit
     const [generatedOutfit, setGeneratedOutfit] = useState<ClothingItem[]>([]);
+    const [excludeIds, setExcludeIds] = useState<string[]>([]);
     const [error, setError] = useState('');
     
     // Outfit name prompt
@@ -222,7 +223,7 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
 
             // Use the first selected item as the base item
             const baseItemId = selectedItemIds[0];
-            const excludeIds = selectedItemIds.slice(1);
+            setExcludeIds([...excludeIds, ...selectedItemIds.slice(1)]);
 
             // Call the recommendation API
             const response = await fetch('/api/recommendations', {
@@ -283,7 +284,11 @@ export default function AIOutfitModal({ isOpen, onClose, onSuccess }: AIOutfitMo
             const baseItemId = selectedItemIds[0];
             // Exclude all previously selected items AND current outfit items to get different results
             const currentOutfitIds = generatedOutfit.map(item => item.id);
-            const excludeIds = [...selectedItemIds.slice(1), ...currentOutfitIds.filter(id => !selectedItemIds.includes(id))];
+            const newExcludeIds = [
+                ...excludeIds,
+                ...currentOutfitIds.filter(id => !selectedItemIds.includes(id))
+            ];
+            setExcludeIds(newExcludeIds);
 
             // Call the recommendation API
             const response = await fetch('/api/recommendations', {

@@ -1,13 +1,28 @@
 import { supabase } from './supabase';
 import { uploadOutfitImage } from './uploadImage';
 import { Outfit, CreateOutfitData } from '../../types/outfit';
-import { getUserItems, toggleFavorite, deleteItem, ApiResult, ApiSuccess } from './utils';
+import { getUserItems, toggleFavorite, deleteItem, ApiResult, ApiSuccess, generateOutfitSignature } from './utils';
 
 export async function createOutfit(
     userId: string,
     data: CreateOutfitData
 ): Promise<ApiResult<Outfit>> {
     try {
+
+        const outfitSignature = generateOutfitSignature(data.clothing_item_ids);
+
+        // Check if outfit with same signature already exists
+        const { data: existingOutfit, error: existingOutfitError } = await supabase
+            .from('outfits')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('outfit_signature', outfitSignature)
+            .single();
+
+        if (existingOutfitError) {
+            return { data: null, error: existingOutfitError.message };
+        }
+
         let imagePath = '';
         let imageUrl = '';
 
@@ -37,6 +52,7 @@ export async function createOutfit(
                 image_url: imageUrl,
                 is_favorite: false,
                 wear_count: 0,
+                outfit_signature: outfitSignature,
             })
             .select()
             .single();
