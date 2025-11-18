@@ -1,4 +1,7 @@
+import { Outfit } from '@/app/types/outfit';
+import { ClothingItem } from '@/app/types/clothing';
 import type { Palette } from '@vibrant/color';
+import { ScoredItem } from '../recommendations';
 
 type MatchReport = {
   hueDeg: number;
@@ -6,7 +9,7 @@ type MatchReport = {
   lightDiff: number;
   neutralPair: boolean;
   warmCoolClash: boolean;
-  verdict: 'match' | 'neutral' | 'mismatch';
+  verdict: number;
 }
 
 export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
@@ -74,18 +77,18 @@ export function compareColors(a: Palette, b: Palette): MatchReport {
 
   const warmCoolClash = isWarmColor(hsl1.h) !== isWarmColor(hsl2.h);
 
-  let verdict: 'match' | 'neutral' | 'mismatch';
+  let verdict: number;
   
   if (neutralPair) {
-    verdict = 'neutral';
-  } else if (warmCoolClash && hueDeg > 60) {
-    verdict = 'mismatch';
-  } else if (hueDeg <= 30) {
-    verdict = 'match';
-  } else if (hueDeg <= 90) {
-    verdict = 'match';
+    verdict = 0.5;
   } else {
-    verdict = 'mismatch';
+    const baseScore = Math.exp(-hueDeg / 60);
+
+    const clashPenality = warmCoolClash && hueDeg > 60
+      ? 0.3 * (hueDeg - 60) / 120
+      : 0;
+
+      verdict = Math.max(0, Math.min(1, baseScore - clashPenality));
   }
 
   return {
@@ -96,4 +99,49 @@ export function compareColors(a: Palette, b: Palette): MatchReport {
     warmCoolClash,
     verdict,
   };
+}
+
+/**
+ * Calculate cosine similarity between two vectors
+ */
+export function cosineSimilarity(a: number[], b: number[]): number {
+  if (!a || !b || a.length !== b.length) {
+    return 0;
+  }
+  
+  const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
+  const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+  const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+  
+  if (magnitudeA === 0 || magnitudeB === 0) {
+    return 0;
+  }
+  
+  return dotProduct / (magnitudeA * magnitudeB);
+}
+
+export function calculateOutfitScore(clothingItems: ClothingItem[], baseItem: ClothingItem): ScoredItem[] {
+
+  // metric weights (color, cosine similarity, etc.)
+  const weights = {
+    colorWeight: 0.7,
+    occasionWeight: 0.5,
+    embeddingSimilarityWeight: 0.2,
+  };
+
+  const scoredItems: ScoredItem[] = clothingItems
+  .filter((item) => item.v_image && item.palette_hsl)
+  .map((item) => {
+    const cosineSim = cosineSimilarity(baseItem.v_image, item.v_image) * weights.embeddingSimilarityWeight;
+    const colorCoh = compareColors(baseItem.palette_hsl, item.palette_hsl).verdict * weights.colorWeight;
+
+    return {
+      ...item,
+      cosineSimilarity: cosineSim,
+      colorCohesion: colorCoh,
+      finalScore: cosineSim + colorCoh
+    };
+  });
+
+  return scoredItems;
 }

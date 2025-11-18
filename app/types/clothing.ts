@@ -1,3 +1,5 @@
+import type { Palette } from '@vibrant/color';
+
 export interface ClothingItem {
     id: string;
     user_id: string;
@@ -18,6 +20,9 @@ export interface ClothingItem {
     wear_count: number;
     created_at: string;
     updated_at: string;
+    v_image: number[];
+    v_text: number[];
+    palette_hsl: Palette;
 }
 
 export type ClothingCategory = 

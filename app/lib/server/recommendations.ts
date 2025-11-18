@@ -3,25 +3,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { ClothingItem, ClothingCategory } from '../../types/clothing';
 import { generateOutfitSignature, parseOutfitSignature } from '../api/utils/outfitSignature';
 import { Outfit } from '@/app/types/outfit';
-
-/**
- * Calculate cosine similarity between two vectors
- */
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (!a || !b || a.length !== b.length) {
-    return 0;
-  }
-  
-  const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
-  const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-  const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-  
-  if (magnitudeA === 0 || magnitudeB === 0) {
-    return 0;
-  }
-  
-  return dotProduct / (magnitudeA * magnitudeB);
-}
+import { cosineSimilarity, calculateOutfitScore } from './util/recommendations';
 
 /**
  * Define what categories complement each base category
@@ -40,8 +22,10 @@ const OUTFIT_RULES: Record<ClothingCategory, ClothingCategory[]> = {
 /**
  * Extended ClothingItem with similarity score
  */
-interface ScoredItem extends ClothingItem {
-  similarity: number;
+export interface ScoredItem extends ClothingItem {
+  cosineSimilarity: number,
+  colorCohesion: number,
+  finalScore: number;
 }
 
 /**
@@ -115,15 +99,12 @@ export async function buildOutfitFromBase(
       continue; // Skip if no items in this category
     }
 
-    // Calculate similarity scores
-    const scoredItems: ScoredItem[] = categoryItems.map((item) => ({
-      ...item,
-      similarity: cosineSimilarity(baseItem.v_image, item.v_image),
-    }));
+    // Calculate scores
+    const scoredItems = calculateOutfitScore(categoryItems, baseItem);
 
     // Sort by similarity (highest first) and take top 3
     const topItems = scoredItems
-      .sort((a, b) => b.similarity - a.similarity)
+      .sort((a, b) => b.finalScore - a.finalScore)
       .slice(0, 3);
 
     recommendations.push({
