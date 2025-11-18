@@ -329,7 +329,7 @@ describe('compareColors', () => {
     const result = compareColors(gray1, gray2);
 
     expect(result.neutralPair).toBe(true);
-    expect(result.verdict).toBe('neutral');
+    expect(result.verdict).toBe(0.5); // Neutral pairs return 0.5
   });
 
   it('should return match for similar hues', () => {
@@ -338,7 +338,7 @@ describe('compareColors', () => {
 
     const result = compareColors(red1, red2);
 
-    expect(result.verdict).toBe('match');
+    expect(result.verdict).toBeGreaterThan(0.7); // Similar colors should have high verdict (close to 1)
     expect(result.hueDeg).toBeLessThanOrEqual(30);
   });
 
@@ -348,7 +348,7 @@ describe('compareColors', () => {
 
     const result = compareColors(red, orange);
 
-    expect(result.verdict).toBe('match');
+    expect(result.verdict).toBeGreaterThan(0.3); // Complementary colors within 90 degrees should have decent verdict
     expect(result.hueDeg).toBeLessThanOrEqual(90);
   });
 
@@ -360,7 +360,7 @@ describe('compareColors', () => {
 
     expect(result.warmCoolClash).toBe(true);
     expect(result.hueDeg).toBeGreaterThan(60);
-    expect(result.verdict).toBe('mismatch');
+    expect(result.verdict).toBeLessThan(0.3); // Warm/cool clashes with large hue difference should have low verdict
   });
 
   it('should calculate correct hue distance', () => {
@@ -412,7 +412,9 @@ describe('compareColors', () => {
     expect(result).toHaveProperty('neutralPair');
     expect(result).toHaveProperty('warmCoolClash');
     expect(result).toHaveProperty('verdict');
-    expect(['match', 'neutral', 'mismatch']).toContain(result.verdict);
+    expect(typeof result.verdict).toBe('number');
+    expect(result.verdict).toBeGreaterThanOrEqual(0);
+    expect(result.verdict).toBeLessThanOrEqual(1);
   });
 });
 

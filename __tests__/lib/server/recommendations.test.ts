@@ -6,6 +6,8 @@ import {
   type OutfitRecommendation,
 } from '@/app/lib/server/recommendations';
 import type { ClothingItem } from '@/app/types/clothing';
+import type { Palette } from '@vibrant/color';
+import { rgbToHsl } from '@/app/lib/server/util/recommendations';
 
 // Mock server-only module
 vi.mock('server-only', () => ({}));
@@ -14,6 +16,29 @@ describe('recommendations', () => {
   let mockSupabase: SupabaseClient;
   const mockUserId = 'user-123';
   const mockBaseItemId = 'item-base-123';
+
+  // Helper function to create mock palette
+  const createMockPalette = (rgb: [number, number, number]): Palette => {
+    return {
+      Vibrant: {
+        rgb,
+        hsl: rgbToHsl(rgb[0], rgb[1], rgb[2]),
+        hex: `#${rgb.map(v => v.toString(16).padStart(2, '0')).join('')}`,
+        population: 1000,
+        r: rgb[0],
+        g: rgb[1],
+        b: rgb[2],
+        titleTextColor: '#000000',
+        bodyTextColor: '#000000',
+        toJSON: () => ({ rgb, population: 1000 }),
+      } as any,
+      Muted: null,
+      DarkVibrant: null,
+      DarkMuted: null,
+      LightVibrant: null,
+      LightMuted: null,
+    };
+  };
 
   // Helper function to create base item query mock
   const createBaseItemMock = (baseItem: ClothingItem & { v_image?: number[] }) => {
@@ -108,7 +133,7 @@ describe('recommendations', () => {
     });
 
     it('should throw error when base item has no embedding', async () => {
-      const mockBaseItem: ClothingItem = {
+      const mockBaseItem: Partial<ClothingItem> = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -117,7 +142,8 @@ describe('recommendations', () => {
         wear_count: 0,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
-        // No v_image
+        v_text: [],
+        // No v_image - intentionally missing to test error
       };
 
       const mockSingle = vi.fn().mockResolvedValue({
@@ -147,7 +173,7 @@ describe('recommendations', () => {
     });
 
     it('should throw error when fetching all items fails', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -157,6 +183,8 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
       const mockSingle = vi.fn().mockResolvedValue({
@@ -203,7 +231,7 @@ describe('recommendations', () => {
     });
 
     it('should return recommendations for tops category', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -213,9 +241,11 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
-      const mockItems: (ClothingItem & { v_image?: number[] })[] = [
+      const mockItems: (ClothingItem & { v_image?: number[]; palette_hsl?: Palette })[] = [
         {
           id: 'item-1',
           user_id: mockUserId,
@@ -226,6 +256,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([255, 0, 0]), // Red
         },
         {
           id: 'item-2',
@@ -237,6 +269,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
         {
           id: 'item-3',
@@ -248,6 +282,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([128, 128, 128]), // Gray
         },
       ];
 
@@ -270,7 +306,7 @@ describe('recommendations', () => {
     });
 
     it('should exclude specified item IDs', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -280,9 +316,11 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
-      const mockItems: (ClothingItem & { v_image?: number[] })[] = [
+      const mockItems: (ClothingItem & { v_image?: number[]; palette_hsl?: Palette })[] = [
         {
           id: 'item-1',
           user_id: mockUserId,
@@ -293,6 +331,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
         {
           id: 'item-excluded',
@@ -304,6 +344,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
       ];
 
@@ -329,7 +371,7 @@ describe('recommendations', () => {
     });
 
     it('should limit recommendations to top 3 items per category', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -339,12 +381,14 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
       // Create 5 items in bottoms category with different similarities
       // Use vectors with different directions to create different similarity scores
       // Base item has all 0.1, so we'll create vectors that vary to get different cosine similarities
-      const mockBottoms: (ClothingItem & { v_image?: number[] })[] = Array.from(
+      const mockBottoms: (ClothingItem & { v_image?: number[]; palette_hsl?: Palette })[] = Array.from(
         { length: 5 },
         (_, i) => {
           // Create a vector that's more similar to base (all 0.1) as i increases
@@ -369,6 +413,8 @@ describe('recommendations', () => {
             v_image: Array(768).fill(0).map((_, idx) => 
               idx % 2 === 0 ? baseValue : baseValue + variation
             ),
+            v_text: [],
+            palette_hsl: createMockPalette([0, 0, 128]), // Navy - similar color to base
           };
         }
       );
@@ -385,18 +431,22 @@ describe('recommendations', () => {
       const bottomsRec = result.recommendations.find((r) => r.category === 'bottoms');
       expect(bottomsRec).toBeDefined();
       expect(bottomsRec?.items).toHaveLength(3); // Should be limited to top 3
-      // Should be sorted by similarity (highest first)
-      expect(bottomsRec?.items[0].similarity).toBeGreaterThanOrEqual(bottomsRec?.items[1].similarity!);
-      expect(bottomsRec?.items[1].similarity).toBeGreaterThanOrEqual(bottomsRec?.items[2].similarity!);
-      // Verify all items have similarity scores (allow slight floating point errors)
+      // Should be sorted by finalScore (highest first)
+      expect(bottomsRec?.items[0].finalScore!).toBeGreaterThanOrEqual(bottomsRec?.items[1].finalScore!);
+      expect(bottomsRec?.items[1].finalScore!).toBeGreaterThanOrEqual(bottomsRec?.items[2].finalScore!);
+      // Verify all items have scoring properties
       bottomsRec?.items.forEach(item => {
-        expect(item.similarity).toBeGreaterThanOrEqual(0);
-        expect(item.similarity).toBeLessThanOrEqual(1.0001); // Allow floating point precision errors
+        expect(item).toHaveProperty('cosineSimilarity');
+        expect(item).toHaveProperty('colorCohesion');
+        expect(item).toHaveProperty('finalScore');
+        expect(item.finalScore).toBeGreaterThanOrEqual(0);
+        expect(item.finalScore).toBeLessThanOrEqual(1.0001); // Allow floating point precision errors
+        expect(item.finalScore).toBe(item.cosineSimilarity + item.colorCohesion);
       });
     });
 
     it('should skip categories with no items', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -406,6 +456,8 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
       // No items in any category
@@ -423,7 +475,7 @@ describe('recommendations', () => {
     });
 
     it('should filter out items without embeddings', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -433,9 +485,11 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
-      const mockItems: (ClothingItem & { v_image?: number[] })[] = [
+      const mockItems: (ClothingItem & { v_image?: number[]; palette_hsl?: Palette })[] = [
         {
           id: 'item-1',
           user_id: mockUserId,
@@ -446,6 +500,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
         {
           id: 'item-2',
@@ -456,8 +512,10 @@ describe('recommendations', () => {
           wear_count: 0,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
           // No v_image - should be filtered out
-        },
+        } as unknown as ClothingItem & { v_image?: number[]; palette_hsl?: Palette },
       ];
 
       const mockSelectBase = createBaseItemMock(mockBaseItem);
@@ -476,7 +534,7 @@ describe('recommendations', () => {
     });
 
     it('should handle different base categories correctly', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'T-Shirt',
@@ -486,9 +544,11 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([255, 0, 0]), // Red
       };
 
-      const mockItems: (ClothingItem & { v_image?: number[] })[] = [
+      const mockItems: (ClothingItem & { v_image?: number[]; palette_hsl?: Palette })[] = [
         {
           id: 'item-1',
           user_id: mockUserId,
@@ -499,6 +559,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
         {
           id: 'item-2',
@@ -510,6 +572,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([128, 128, 128]), // Gray
         },
       ];
 
@@ -529,7 +593,7 @@ describe('recommendations', () => {
     });
 
     it('should handle undergarments category (no recommendations)', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Undershirt',
@@ -539,6 +603,8 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([255, 255, 255]), // White
       };
 
       const mockSelectBase = createBaseItemMock(mockBaseItem);
@@ -557,7 +623,7 @@ describe('recommendations', () => {
 
   describe('generateCompleteOutfit', () => {
     it('should generate complete outfit with base item and top recommendations', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -567,9 +633,11 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
-      const mockItems: (ClothingItem & { v_image?: number[] })[] = [
+      const mockItems: (ClothingItem & { v_image?: number[]; palette_hsl?: Palette })[] = [
         {
           id: 'item-1',
           user_id: mockUserId,
@@ -580,6 +648,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
         {
           id: 'item-2',
@@ -591,6 +661,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([128, 128, 128]), // Gray
         },
       ];
 
@@ -612,7 +684,7 @@ describe('recommendations', () => {
     });
 
     it('should return only base item when no recommendations available', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -622,6 +694,8 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
       const mockSelectBase = createBaseItemMock(mockBaseItem);
@@ -640,7 +714,7 @@ describe('recommendations', () => {
     });
 
     it('should respect excludeIds parameter', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -650,9 +724,11 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
-      const mockItems: (ClothingItem & { v_image?: number[] })[] = [
+      const mockItems: (ClothingItem & { v_image?: number[]; palette_hsl?: Palette })[] = [
         {
           id: 'item-1',
           user_id: mockUserId,
@@ -663,6 +739,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
         {
           id: 'item-excluded',
@@ -674,6 +752,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.3),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
       ];
 
@@ -700,7 +780,7 @@ describe('recommendations', () => {
     });
 
     it('should handle categories with empty recommendations', async () => {
-      const mockBaseItem: ClothingItem & { v_image?: number[] } = {
+      const mockBaseItem: ClothingItem & { v_image?: number[]; palette_hsl?: Palette } = {
         id: mockBaseItemId,
         user_id: mockUserId,
         name: 'Blue Jacket',
@@ -710,10 +790,12 @@ describe('recommendations', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         v_image: Array(768).fill(0.1),
+        v_text: [],
+        palette_hsl: createMockPalette([0, 0, 255]), // Blue
       };
 
       // Only one item in bottoms, none in tops or shoes
-      const mockItems: (ClothingItem & { v_image?: number[] })[] = [
+      const mockItems: (ClothingItem & { v_image?: number[]; palette_hsl?: Palette })[] = [
         {
           id: 'item-1',
           user_id: mockUserId,
@@ -724,6 +806,8 @@ describe('recommendations', () => {
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
           v_image: Array(768).fill(0.2),
+          v_text: [],
+          palette_hsl: createMockPalette([0, 0, 128]), // Navy
         },
       ];
 
