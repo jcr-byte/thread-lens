@@ -55,6 +55,20 @@ describe('recommendations', () => {
     };
   };
 
+  // Helper function to create user outfits query mock
+  const createUserOutfitsMock = (outfits: { outfit_signature: string }[] = []) => {
+    const mockEq = vi.fn().mockResolvedValue({
+      data: outfits,
+      error: null,
+    });
+
+    return {
+      select: vi.fn().mockReturnValue({
+        eq: mockEq,
+      }),
+    };
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     
@@ -582,10 +596,12 @@ describe('recommendations', () => {
 
       const mockSelectBase = createBaseItemMock(mockBaseItem);
       const mockSelectAll = createAllItemsMock([mockBaseItem, ...mockItems]);
+      const mockUserOutfits = createUserOutfitsMock([]); // No existing outfits
 
       vi.mocked(mockSupabase.from)
-        .mockReturnValueOnce(mockSelectBase as any)
-        .mockReturnValueOnce(mockSelectAll as any);
+        .mockReturnValueOnce(mockUserOutfits as any) // First call: fetch user outfits
+        .mockReturnValueOnce(mockSelectBase as any) // Second call: fetch base item
+        .mockReturnValueOnce(mockSelectAll as any); // Third call: fetch all items
 
       const result = await generateCompleteOutfit(mockSupabase, mockUserId, mockBaseItemId);
 
@@ -610,10 +626,12 @@ describe('recommendations', () => {
 
       const mockSelectBase = createBaseItemMock(mockBaseItem);
       const mockSelectAll = createAllItemsMock([mockBaseItem]);
+      const mockUserOutfits = createUserOutfitsMock([]); // No existing outfits
 
       vi.mocked(mockSupabase.from)
-        .mockReturnValueOnce(mockSelectBase as any)
-        .mockReturnValueOnce(mockSelectAll as any);
+        .mockReturnValueOnce(mockUserOutfits as any) // First call: fetch user outfits
+        .mockReturnValueOnce(mockSelectBase as any) // Second call: fetch base item
+        .mockReturnValueOnce(mockSelectAll as any); // Third call: fetch all items
 
       const result = await generateCompleteOutfit(mockSupabase, mockUserId, mockBaseItemId);
 
@@ -661,10 +679,12 @@ describe('recommendations', () => {
 
       const mockSelectBase = createBaseItemMock(mockBaseItem);
       const mockSelectAll = createAllItemsMock([mockBaseItem, ...mockItems]);
+      const mockUserOutfits = createUserOutfitsMock([]); // No existing outfits
 
       vi.mocked(mockSupabase.from)
-        .mockReturnValueOnce(mockSelectBase as any)
-        .mockReturnValueOnce(mockSelectAll as any);
+        .mockReturnValueOnce(mockUserOutfits as any) // First call: fetch user outfits
+        .mockReturnValueOnce(mockSelectBase as any) // Second call: fetch base item
+        .mockReturnValueOnce(mockSelectAll as any); // Third call: fetch all items
 
       const result = await generateCompleteOutfit(
         mockSupabase,
@@ -709,10 +729,12 @@ describe('recommendations', () => {
 
       const mockSelectBase = createBaseItemMock(mockBaseItem);
       const mockSelectAll = createAllItemsMock([mockBaseItem, ...mockItems]);
+      const mockUserOutfits = createUserOutfitsMock([]); // No existing outfits
 
       vi.mocked(mockSupabase.from)
-        .mockReturnValueOnce(mockSelectBase as any)
-        .mockReturnValueOnce(mockSelectAll as any);
+        .mockReturnValueOnce(mockUserOutfits as any) // First call: fetch user outfits
+        .mockReturnValueOnce(mockSelectBase as any) // Second call: fetch base item
+        .mockReturnValueOnce(mockSelectAll as any); // Third call: fetch all items
 
       const result = await generateCompleteOutfit(mockSupabase, mockUserId, mockBaseItemId);
 
