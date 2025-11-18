@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { rgbToHsl, isNeutralPair, hueDistanceDegrees, compareColors } from '@/app/lib/server/util/recommendations';
+import { rgbToHsl, isNeutralPair, hueDistanceDegrees, compareColors, cosineSimilarity, calculateOutfitScore } from '@/app/lib/server/util/recommendations';
 import type { Palette } from '@vibrant/color';
+import type { ClothingItem } from '@/app/types/clothing';
+import type { ScoredItem } from '@/app/lib/server/recommendations';
 
 describe('rgbToHsl', () => {
   // Helper function to check HSL values with tolerance for floating point precision
@@ -415,6 +417,265 @@ describe('compareColors', () => {
     expect(typeof result.verdict).toBe('number');
     expect(result.verdict).toBeGreaterThanOrEqual(0);
     expect(result.verdict).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('cosineSimilarity', () => {
+  it('should return 1 for identical vectors', () => {
+    const vec = [1, 2, 3, 4, 5];
+    expect(cosineSimilarity(vec, vec)).toBe(1);
+  });
+
+  it('should return 1 for proportional vectors', () => {
+    const vec1 = [1, 2, 3];
+    const vec2 = [2, 4, 6]; // 2x vec1
+    expect(cosineSimilarity(vec1, vec2)).toBeCloseTo(1, 10);
+  });
+
+  it('should return 0 for orthogonal vectors', () => {
+    const vec1 = [1, 0, 0];
+    const vec2 = [0, 1, 0];
+    expect(cosineSimilarity(vec1, vec2)).toBe(0);
+  });
+
+  it('should return 0 for mismatched lengths', () => {
+    expect(cosineSimilarity([1, 2], [1, 2, 3])).toBe(0);
+    expect(cosineSimilarity([1, 2, 3], [1, 2])).toBe(0);
+  });
+
+  it('should return 0 for zero vectors', () => {
+    expect(cosineSimilarity([0, 0, 0], [1, 2, 3])).toBe(0);
+    expect(cosineSimilarity([1, 2, 3], [0, 0, 0])).toBe(0);
+    expect(cosineSimilarity([0, 0, 0], [0, 0, 0])).toBe(0);
+  });
+
+  it('should return 0 for null or undefined inputs', () => {
+    expect(cosineSimilarity(null as any, [1, 2, 3])).toBe(0);
+    expect(cosineSimilarity([1, 2, 3], null as any)).toBe(0);
+    expect(cosineSimilarity(undefined as any, [1, 2, 3])).toBe(0);
+    expect(cosineSimilarity([1, 2, 3], undefined as any)).toBe(0);
+  });
+
+  it('should calculate correct similarity for similar vectors', () => {
+    const vec1 = [1, 0, 0];
+    const vec2 = [0.8, 0.6, 0];
+    // Dot product: 0.8
+    // Magnitude vec1: 1
+    // Magnitude vec2: sqrt(0.64 + 0.36) = 1
+    // Result: 0.8 / (1 * 1) = 0.8
+    expect(cosineSimilarity(vec1, vec2)).toBeCloseTo(0.8, 10);
+  });
+
+  it('should calculate correct similarity for opposite vectors', () => {
+    const vec1 = [1, 0, 0];
+    const vec2 = [-1, 0, 0];
+    expect(cosineSimilarity(vec1, vec2)).toBeCloseTo(-1, 10);
+  });
+
+  it('should handle negative values correctly', () => {
+    const vec1 = [1, -1, 0];
+    const vec2 = [-1, 1, 0];
+    // Dot product: -1 - 1 + 0 = -2
+    // Magnitude vec1: sqrt(1 + 1) = sqrt(2)
+    // Magnitude vec2: sqrt(1 + 1) = sqrt(2)
+    // Result: -2 / (sqrt(2) * sqrt(2)) = -2 / 2 = -1
+    expect(cosineSimilarity(vec1, vec2)).toBeCloseTo(-1, 10);
+  });
+
+  it('should handle large vectors', () => {
+    const vec1 = Array(768).fill(0.1);
+    const vec2 = Array(768).fill(0.2);
+    // Both vectors are constant, so they're proportional
+    expect(cosineSimilarity(vec1, vec2)).toBeCloseTo(1, 10);
+  });
+
+  it('should return values in range [-1, 1]', () => {
+    const testCases = [
+      [[1, 0, 0], [1, 0, 0]], // Same direction
+      [[1, 0, 0], [0, 1, 0]], // Orthogonal
+      [[1, 0, 0], [-1, 0, 0]], // Opposite
+      [[1, 1, 0], [1, 0, 0]], // 45 degrees
+    ];
+
+    testCases.forEach(([a, b]) => {
+      const result = cosineSimilarity(a, b);
+      expect(result).toBeGreaterThanOrEqual(-1);
+      expect(result).toBeLessThanOrEqual(1);
+    });
+  });
+});
+
+describe('calculateOutfitScore', () => {
+  const createMockPalette = (rgb: [number, number, number]): Palette => {
+    return {
+      Vibrant: {
+        rgb,
+        hsl: rgbToHsl(rgb[0], rgb[1], rgb[2]),
+        hex: `#${rgb.map(v => v.toString(16).padStart(2, '0')).join('')}`,
+        population: 1000,
+        r: rgb[0],
+        g: rgb[1],
+        b: rgb[2],
+        titleTextColor: '#000000',
+        bodyTextColor: '#000000',
+        toJSON: () => ({ rgb, population: 1000 }),
+      } as any,
+      Muted: null,
+      DarkVibrant: null,
+      DarkMuted: null,
+      LightVibrant: null,
+      LightMuted: null,
+    };
+  };
+
+  const createMockItem = (id: string, v_image: number[], palette: Palette): ClothingItem => ({
+    id,
+    user_id: 'user-1',
+    name: `Item ${id}`,
+    category: 'tops',
+    is_favorite: false,
+    wear_count: 0,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    v_image,
+    v_text: [],
+    palette_hsl: palette,
+  });
+
+  it('should filter out items without v_image', () => {
+    const baseItem = createMockItem('base', [1, 2, 3], createMockPalette([255, 0, 0]));
+    const items: ClothingItem[] = [
+      createMockItem('valid', [1, 2, 3], createMockPalette([255, 0, 0])),
+      { ...createMockItem('no-image', [1, 2, 3], createMockPalette([255, 0, 0])), v_image: undefined as any },
+    ];
+
+    const result = calculateOutfitScore(items, baseItem);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('valid');
+  });
+
+  it('should filter out items without palette_hsl', () => {
+    const baseItem = createMockItem('base', [1, 2, 3], createMockPalette([255, 0, 0]));
+    const items: ClothingItem[] = [
+      createMockItem('valid', [1, 2, 3], createMockPalette([255, 0, 0])),
+      { ...createMockItem('no-palette', [1, 2, 3], createMockPalette([255, 0, 0])), palette_hsl: undefined as any },
+    ];
+
+    const result = calculateOutfitScore(items, baseItem);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('valid');
+  });
+
+  it('should filter out items without both v_image and palette_hsl', () => {
+    const baseItem = createMockItem('base', [1, 2, 3], createMockPalette([255, 0, 0]));
+    const items: ClothingItem[] = [
+      createMockItem('valid', [1, 2, 3], createMockPalette([255, 0, 0])),
+      { ...createMockItem('invalid', [1, 2, 3], createMockPalette([255, 0, 0])), v_image: undefined as any, palette_hsl: undefined as any },
+    ];
+
+    const result = calculateOutfitScore(items, baseItem);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('valid');
+  });
+
+  it('should calculate scores correctly', () => {
+    const baseItem = createMockItem('base', [1, 0, 0], createMockPalette([255, 0, 0]));
+    const items = [
+      createMockItem('similar', [1, 0, 0], createMockPalette([255, 50, 50])), // Same vector, similar color
+    ];
+
+    const result = calculateOutfitScore(items, baseItem);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveProperty('cosineSimilarity');
+    expect(result[0]).toHaveProperty('colorCohesion');
+    expect(result[0]).toHaveProperty('finalScore');
+    expect(result[0].finalScore).toBe(result[0].cosineSimilarity + result[0].colorCohesion);
+  });
+
+  it('should apply weights correctly', () => {
+    const baseItem = createMockItem('base', [1, 0, 0], createMockPalette([255, 0, 0]));
+    const items = [createMockItem('item', [1, 0, 0], createMockPalette([255, 0, 0]))];
+
+    const result = calculateOutfitScore(items, baseItem);
+    
+    // cosineSimilarity should be weighted by 0.2
+    const rawCosine = cosineSimilarity(baseItem.v_image, items[0].v_image);
+    expect(result[0].cosineSimilarity).toBeCloseTo(rawCosine * 0.2, 5);
+    
+    // colorCohesion should be weighted by 0.7
+    const rawColor = compareColors(baseItem.palette_hsl, items[0].palette_hsl).verdict;
+    expect(result[0].colorCohesion).toBeCloseTo(rawColor * 0.7, 5);
+  });
+
+  it('should handle empty array', () => {
+    const baseItem = createMockItem('base', [1, 2, 3], createMockPalette([255, 0, 0]));
+    const result = calculateOutfitScore([], baseItem);
+    expect(result).toEqual([]);
+  });
+
+  it('should preserve all item properties in result', () => {
+    const baseItem = createMockItem('base', [1, 2, 3], createMockPalette([255, 0, 0]));
+    const items = [createMockItem('item', [1, 2, 3], createMockPalette([255, 0, 0]))];
+
+    const result = calculateOutfitScore(items, baseItem);
+    expect(result[0].id).toBe('item');
+    expect(result[0].name).toBe('Item item');
+    expect(result[0].category).toBe('tops');
+    expect(result[0].user_id).toBe('user-1');
+    expect(result[0].is_favorite).toBe(false);
+  });
+
+  it('should calculate finalScore as sum of cosineSimilarity and colorCohesion', () => {
+    const baseItem = createMockItem('base', [1, 0, 0], createMockPalette([255, 0, 0]));
+    const items = [
+      createMockItem('item1', [1, 0, 0], createMockPalette([255, 0, 0])),
+      createMockItem('item2', [0, 1, 0], createMockPalette([0, 255, 0])),
+    ];
+
+    const result = calculateOutfitScore(items, baseItem);
+    
+    result.forEach(item => {
+      expect(item.finalScore).toBeCloseTo(item.cosineSimilarity + item.colorCohesion, 10);
+    });
+  });
+
+  it('should handle multiple items correctly', () => {
+    const baseItem = createMockItem('base', [1, 0, 0], createMockPalette([255, 0, 0]));
+    const items = [
+      createMockItem('item1', [1, 0, 0], createMockPalette([255, 0, 0])),
+      createMockItem('item2', [0, 1, 0], createMockPalette([0, 255, 0])),
+      createMockItem('item3', [0, 0, 1], createMockPalette([0, 0, 255])),
+    ];
+
+    const result = calculateOutfitScore(items, baseItem);
+    expect(result).toHaveLength(3);
+    
+    // All items should have scoring properties
+    result.forEach(item => {
+      expect(item).toHaveProperty('cosineSimilarity');
+      expect(item).toHaveProperty('colorCohesion');
+      expect(item).toHaveProperty('finalScore');
+      expect(typeof item.cosineSimilarity).toBe('number');
+      expect(typeof item.colorCohesion).toBe('number');
+      expect(typeof item.finalScore).toBe('number');
+    });
+  });
+
+  it('should return ScoredItem type with all required properties', () => {
+    const baseItem = createMockItem('base', [1, 2, 3], createMockPalette([255, 0, 0]));
+    const items = [createMockItem('item', [1, 2, 3], createMockPalette([255, 0, 0]))];
+
+    const result = calculateOutfitScore(items, baseItem);
+    const scoredItem: ScoredItem = result[0];
+    
+    // Verify it extends ClothingItem
+    expect(scoredItem.id).toBe('item');
+    expect(scoredItem.name).toBe('Item item');
+    
+    // Verify it has ScoredItem properties
+    expect(scoredItem.cosineSimilarity).toBeDefined();
+    expect(scoredItem.colorCohesion).toBeDefined();
+    expect(scoredItem.finalScore).toBeDefined();
   });
 });
 
